@@ -1,4 +1,21 @@
 Ignoring Build/linux/ci_build.sh; not a valid file name (cc, cpp, h)
 Ignoring autobuild.sh; not a valid file name (cc, cpp, h)
+citest/cpplint_test.cpp:0:  No copyright message found.  You should have a line: "Copyright [year] <Copyright Owner>"  [legal/copyright] [5]
+citest/cpplint_test.cpp:2:  Line ends in whitespace.  Consider deleting these extra spaces.  [whitespace/end_of_line] [4]
+citest/cpplint_test.cpp:3:  Do not use namespace using-directives.  Use using-declarations instead.  [build/namespaces] [5]
+citest/cpplint_test.cpp:4:  Weird number of spaces at line-start.  Are you using a 2-space indent?  [whitespace/indent] [3]
+citest/cpplint_test.cpp:4:  Line ends in whitespace.  Consider deleting these extra spaces.  [whitespace/end_of_line] [4]
+citest/cpplint_test.cpp:6:  { should almost always be at the end of the previous line  [whitespace/braces] [4]
+citest/cpplint_test.cpp:7:  Tab found; better to use spaces  [whitespace/tab] [1]
+citest/cpplint_test.cpp:7:  Missing spaces around <<  [whitespace/operators] [3]
+citest/cpplint_test.cpp:8:  Tab found; better to use spaces  [whitespace/tab] [1]
+citest/cpplint_test.cpp:8:  Line ends in whitespace.  Consider deleting these extra spaces.  [whitespace/end_of_line] [4]
+citest/cpplint_test.cpp:9:  Tab found; better to use spaces  [whitespace/tab] [1]
+Ignoring codereview.sh; not a valid file name (cc, cpp, h)
+Ignoring cpplint-result.xml; not a valid file name (cc, cpp, h)
 Done processing Build/linux/ci_build.sh
 Done processing autobuild.sh
+Done processing citest/cpplint_test.cpp
+Done processing codereview.sh
+Done processing cpplint-result.xml
+Total errors found: 11
