@@ -8,7 +8,7 @@
 
 #include <stdio.h>
 
-#include "EbApi.h"
+#include "EbSvtAv1Enc.h"
 
 #ifdef __GNUC__
 #define fseeko64 fseek
@@ -90,19 +90,19 @@ extern    uint32_t                   appMallocCount;
 
 #define MAX_APP_NUM_PTR                             (0x186A0 << 2)             // Maximum number of pointers to be allocated for the app
 
-#define EB_APP_MALLOC(type, pointer, nElements, pointerClass, returnType) \
-    pointer = (type)malloc(nElements); \
+#define EB_APP_MALLOC(type, pointer, n_elements, pointer_class, returnType) \
+    pointer = (type)malloc(n_elements); \
     if (pointer == (type)EB_NULL){ \
         return returnType; \
             } \
                 else { \
-        appMemoryMap[*(appMemoryMapIndex)].ptrType = pointerClass; \
+        appMemoryMap[*(appMemoryMapIndex)].ptrType = pointer_class; \
         appMemoryMap[(*(appMemoryMapIndex))++].ptr = pointer; \
-        if (nElements % 8 == 0) { \
-            *totalAppMemory += (nElements); \
+        if (n_elements % 8 == 0) { \
+            *totalAppMemory += (n_elements); \
                         } \
                                 else { \
-            *totalAppMemory += ((nElements) + (8 - ((nElements) % 8))); \
+            *totalAppMemory += ((n_elements) + (8 - ((n_elements) % 8))); \
             } \
         } \
     if (*(appMemoryMapIndex) >= MAX_APP_NUM_PTR) { \
@@ -110,22 +110,22 @@ extern    uint32_t                   appMallocCount;
                 } \
     appMallocCount++;
 
-#define EB_APP_MALLOC_NR(type, pointer, nElements, pointerClass,returnType) \
+#define EB_APP_MALLOC_NR(type, pointer, n_elements, pointer_class,returnType) \
     (void)returnType; \
-    pointer = (type)malloc(nElements); \
+    pointer = (type)malloc(n_elements); \
     if (pointer == (type)EB_NULL){ \
         returnType = EB_ErrorInsufficientResources; \
         printf("Malloc has failed due to insuffucient resources"); \
         return; \
             } \
                 else { \
-        appMemoryMap[*(appMemoryMapIndex)].ptrType = pointerClass; \
+        appMemoryMap[*(appMemoryMapIndex)].ptrType = pointer_class; \
         appMemoryMap[(*(appMemoryMapIndex))++].ptr = pointer; \
-        if (nElements % 8 == 0) { \
-            *totalAppMemory += (nElements); \
+        if (n_elements % 8 == 0) { \
+            *totalAppMemory += (n_elements); \
                         } \
                                 else { \
-            *totalAppMemory += ((nElements) + (8 - ((nElements) % 8))); \
+            *totalAppMemory += ((n_elements) + (8 - ((n_elements) % 8))); \
             } \
         } \
     if (*(appMemoryMapIndex) >= MAX_APP_NUM_PTR) { \
@@ -217,6 +217,9 @@ typedef struct EbConfig_s
 
     FILE                    *qpFile;
 
+    EbBool                  y4mInput;
+    unsigned char           y4mBuf[9];
+
     EbBool                  use_qp_file;
 
     uint32_t                 frameRate;
@@ -233,7 +236,7 @@ typedef struct EbConfig_s
     uint32_t                 inputPaddedWidth;
     uint32_t                 inputPaddedHeight;
 
-    int64_t                  framesToBeEncoded;
+    int64_t                  frames_to_be_encoded;
     int32_t                  framesEncoded;
     int32_t                  bufferedInput;
     uint8_t                **sequenceBuffer;
@@ -265,7 +268,7 @@ typedef struct EbConfig_s
     /****************************************
      * Film Grain
      ****************************************/
-    EbBool                  film_grain_denoise_strength;
+    uint32_t                film_grain_denoise_strength;
      /****************************************
      * DLF
      ****************************************/
@@ -318,6 +321,10 @@ typedef struct EbConfig_s
      ****************************************/
     EbBool                  constrained_intra;
 
+#if TILES
+    int32_t                  tile_columns;
+    int32_t                  tile_rows;
+#endif
 
     /****************************************
      * Rate Control
@@ -335,13 +342,6 @@ typedef struct EbConfig_s
 
     EbBool                   improve_sharpness;
     uint32_t                 high_dynamic_range_input;
-    uint32_t                 access_unit_delimiter;
-    uint32_t                 buffering_period_sei;
-    uint32_t                 picture_timing_sei;
-    EbBool                   registered_user_data_sei_flag;
-    EbBool                   unregistered_user_data_sei_flag;
-    EbBool                   recovery_point_sei_flag;
-    uint32_t                 enable_temporal_id;
 
     /****************************************
      * Annex A Parameters
@@ -353,7 +353,6 @@ typedef struct EbConfig_s
     /****************************************
      * On-the-fly Testing
      ****************************************/
-    uint32_t                 testUserData;
     EbBool                   eosFlag;
 
     /****************************************
@@ -377,6 +376,9 @@ typedef struct EbConfig_s
 
     uint64_t                processedFrameCount;
     uint64_t                processedByteCount;
+
+    uint64_t                byte_count_since_ivf;
+    uint64_t                ivf_count;
 
 } EbConfig_t;
 

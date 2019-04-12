@@ -33,7 +33,7 @@ extern "C" {
      ************************************/
     typedef struct SequenceControlSet_s
     {
-        EbSvtAv1EncConfiguration                  static_config;
+        EbSvtAv1EncConfiguration                static_config;
 
         // Encoding Context
         EncodeContext_t                        *encode_context_ptr;
@@ -129,7 +129,14 @@ extern "C" {
         uint32_t                                me_segment_row_count_array[MAX_TEMPORAL_LAYERS];
         uint32_t                                enc_dec_segment_col_count_array[MAX_TEMPORAL_LAYERS];
         uint32_t                                enc_dec_segment_row_count_array[MAX_TEMPORAL_LAYERS];
-
+#if CDEF_M
+        uint32_t                                cdef_segment_column_count;
+        uint32_t                                cdef_segment_row_count;
+#endif
+#if REST_M
+        uint32_t                                rest_segment_column_count;
+        uint32_t                                rest_segment_row_count;
+#endif
         // Buffers
         uint32_t                                picture_control_set_pool_init_count;
         uint32_t                                picture_control_set_pool_init_count_child;
@@ -149,12 +156,22 @@ extern "C" {
         uint32_t                                mode_decision_configuration_fifo_init_count;
         uint32_t                                enc_dec_fifo_init_count;
         uint32_t                                entropy_coding_fifo_init_count;
+#if FILT_PROC
+        uint32_t                                dlf_fifo_init_count;
+        uint32_t                                cdef_fifo_init_count;
+        uint32_t                                rest_fifo_init_count;
+#endif
         uint32_t                                picture_analysis_process_init_count;
         uint32_t                                motion_estimation_process_init_count;
         uint32_t                                source_based_operations_process_init_count;
         uint32_t                                mode_decision_configuration_process_init_count;
         uint32_t                                enc_dec_process_init_count;
         uint32_t                                entropy_coding_process_init_count;
+#if FILT_PROC
+        uint32_t                                dlf_process_init_count;
+        uint32_t                                cdef_process_init_count;
+        uint32_t                                rest_process_init_count;
+#endif
         uint32_t                                total_process_init_count;
         
         uint16_t                                film_grain_random_seed;
@@ -178,7 +195,7 @@ extern "C" {
         int32_t                                 frame_id_numbers_present_flag;
         int32_t                                 frame_id_length;
         int32_t                                 delta_frame_id_length;
-        BlockSize                               sb_size;                            // Size of the superblock used for this frame
+        block_size                               sb_size;                            // Size of the superblock used for this frame
         int32_t                                 mib_size;                           // Size of the superblock in units of MI blocks
         int32_t                                 mib_size_log2;                      // Log 2 of above.
         int32_t                                 order_hint_bits_minus1;
@@ -225,6 +242,14 @@ extern "C" {
         int32_t                                 film_grain_denoise_strength;
         int32_t                                 film_grain_params_present;  // To turn on/off film grain (on a sequence basis)
 
+#if ADP_STATS_PER_LAYER
+        uint64_t                                total_count[5];
+        uint64_t                                sq_search_count[5];
+        uint64_t                                sq_non4_search_count[5];
+        uint64_t                                mdc_count[5];
+        uint64_t                                pred_count[5];
+        uint64_t                                pred1_nfl_count[5];
+#endif
     } SequenceControlSet_t;
 
     typedef struct EbSequenceControlSetInitData_s
@@ -245,12 +270,12 @@ extern "C" {
      * Extern Function Declarations
      **************************************/
     extern EbErrorType eb_sequence_control_set_ctor(
-        EbPtr                          *object_dbl_ptr,
-        EbPtr                           object_init_data_ptr);
+        EbPtr *object_dbl_ptr,
+        EbPtr  object_init_data_ptr);
 
     extern EbErrorType copy_sequence_control_set(
-        SequenceControlSet_t            *dst,
-        SequenceControlSet_t            *src);
+        SequenceControlSet_t *dst,
+        SequenceControlSet_t *src);
 
     extern EbErrorType eb_sequence_control_set_instance_ctor(
         EbSequenceControlSetInstance_t **object_dbl_ptr);
@@ -262,10 +287,10 @@ extern "C" {
         SequenceControlSet_t *sequence_control_set_ptr);
 
     extern EbErrorType derive_input_resolution(
-        SequenceControlSet_t     *sequence_control_set_ptr,
-        uint32_t                  input_size);
+        SequenceControlSet_t *sequence_control_set_ptr,
+        uint32_t              input_size);
 
-    EbErrorType sb_geom_init(SequenceControlSet_t * sequence_control_set_ptr);
+    EbErrorType sb_geom_init(SequenceControlSet_t *sequence_control_set_ptr);
 
 #ifdef __cplusplus
 }

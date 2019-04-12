@@ -8,7 +8,7 @@
 
 #include <time.h>
 
-#include "EbApi.h"
+#include "EbSvtAv1Enc.h"
 #include "EbDefinitions.h"
 #include "EbSystemResourceManager.h"
 #include "EbPictureBufferDesc.h"
@@ -22,6 +22,11 @@
 #include "EbRateControlTables.h"
 #include "EbRestoration.h"
 #include "noise_model.h"
+
+#if CDEF_M
+#include "EbCdef.h"
+#endif
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,22 +43,20 @@ extern "C" {
 #define SEGMENT_MAX_COUNT   64
 #define SEGMENT_COMPLETION_MASK_SET(mask, index)        MULTI_LINE_MACRO_BEGIN (mask) |= (((uint64_t) 1) << (index)); MULTI_LINE_MACRO_END
 #define SEGMENT_COMPLETION_MASK_TEST(mask, total_count)  ((mask) == ((((uint64_t) 1) << (total_count)) - 1))
-#define SEGMENT_ROW_COMPLETION_TEST(mask, rowIndex, width) ((((mask) >> ((rowIndex) * (width))) & ((1ull << (width))-1)) == ((1ull << (width))-1))
-#define SEGMENT_CONVERT_IDX_TO_XY(index, x, y, picWidthInLcu) \
+#define SEGMENT_ROW_COMPLETION_TEST(mask, row_index, width) ((((mask) >> ((row_index) * (width))) & ((1ull << (width))-1)) == ((1ull << (width))-1))
+#define SEGMENT_CONVERT_IDX_TO_XY(index, x, y, pic_width_in_lcu) \
                                                         MULTI_LINE_MACRO_BEGIN \
-                                                            (y) = (index) / (picWidthInLcu); \
-                                                            (x) = (index) - (y) * (picWidthInLcu); \
+                                                            (y) = (index) / (pic_width_in_lcu); \
+                                                            (x) = (index) - (y) * (pic_width_in_lcu); \
                                                         MULTI_LINE_MACRO_END
-#define SEGMENT_START_IDX(index, picSizeInLcu, numOfSeg) (((index) * (picSizeInLcu)) / (numOfSeg))
-#define SEGMENT_END_IDX(index, picSizeInLcu, numOfSeg)   ((((index)+1) * (picSizeInLcu)) / (numOfSeg))
+#define SEGMENT_START_IDX(index, pic_size_in_lcu, num_of_seg) (((index) * (pic_size_in_lcu)) / (num_of_seg))
+#define SEGMENT_END_IDX(index, pic_size_in_lcu, num_of_seg)   ((((index)+1) * (pic_size_in_lcu)) / (num_of_seg))
 
 // BDP OFF
 #define MD_NEIGHBOR_ARRAY_INDEX                0
 #define NEIGHBOR_ARRAY_TOTAL_COUNT             4
 #define AOM_QM_BITS                            5
 #define QM_TOTAL_SIZE                          3344
-
-    typedef uint8_t qm_val_t;
 
     static const int32_t tx_size_2d[TX_SIZES_ALL + 1] = {
         16, 64, 256, 1024, 4096, 32, 32, 128, 128, 512,
@@ -13461,8 +13464,6 @@ extern "C" {
     },
     };
 
-    typedef int32_t tran_low_t;
-
     struct Buf2d {
         uint8_t *buf;
         uint8_t *buf0;
@@ -13590,7 +13591,7 @@ extern "C" {
         int32_t rst_end_stripe[MAX_TILE_ROWS];
         // Output of loop restoration
         Yv12BufferConfig rst_frame;
-        // Pointer to a scratch buffer used by self-guided restoration
+        // pointer to a scratch buffer used by self-guided restoration
         int32_t *rst_tmpbuf;
         Yv12BufferConfig *frame_to_show;
         int32_t byte_alignment;
@@ -13610,6 +13611,15 @@ extern "C" {
         int32_t tile_row_start_sb[MAX_TILE_ROWS + 1];  // valid for 0 <= i <= tile_rows
         int32_t tile_width, tile_height;               // In MI units
         struct PictureParentControlSet_s               *p_pcs_ptr;
+#if FAST_SG
+        int8_t  sg_filter_mode;
+        int32_t sg_frame_ep_cnt[SGRPROJ_PARAMS];
+        int32_t sg_frame_ep;
+        int8_t  sg_ref_frame_ep[2];
+#endif
+#if FAST_SG
+        int8_t  wn_filter_mode;
+#endif
     } Av1Common;
 
     /**************************************
@@ -13633,7 +13643,7 @@ extern "C" {
         // ME Results
         uint64_t          treeblock_variance;
         uint32_t          leaf_count;
-        EbMdcLeafData_t   leaf_data_array[BLOCK_MAX_COUNT];
+        EbMdcLeafData_t   leaf_data_array[BLOCK_MAX_COUNT_SB_128];
 
     } MdcLcuData_t;
 
@@ -13643,13 +13653,13 @@ extern "C" {
      **************************************/
     typedef struct MdSegmentCtrl_s
     {
-        uint64_t                                completion_mask;
-        EbHandle                                write_lock_mutex;
-        uint32_t                                total_count;
-        uint32_t                                column_count;
-        uint32_t                                row_count;
-        EbBool                                  in_progress;
-        uint32_t                                current_row_idx;
+        uint64_t completion_mask;
+        EbHandle write_lock_mutex;
+        uint32_t total_count;
+        uint32_t column_count;
+        uint32_t row_count;
+        EbBool   in_progress;
+        uint32_t current_row_idx;
 
     } MdSegmentCtrl_t;
 
@@ -13698,7 +13708,27 @@ extern "C" {
         EbBool                                entropy_coding_pic_done;
         EbHandle                              intra_mutex;
         uint32_t                              intra_coded_area;
+#if CDEF_M
+        uint32_t                              tot_seg_searched_cdef;
+        EbHandle                              cdef_search_mutex;
 
+        uint16_t                              cdef_segments_total_count;
+        uint8_t                               cdef_segments_column_count;
+        uint8_t                               cdef_segments_row_count;
+
+        uint64_t(*mse_seg[2])[TOTAL_STRENGTHS];
+
+        uint16_t *src[3];        //dlfed recon in 16bit form
+        uint16_t *ref_coeff[3];  //input video in 16bit form
+
+#endif
+#if REST_M
+        uint32_t                              tot_seg_searched_rest;
+        EbHandle                              rest_search_mutex;
+        uint16_t                              rest_segments_total_count;
+        uint8_t                               rest_segments_column_count;
+        uint8_t                               rest_segments_row_count;            
+#endif
         // Mode Decision Config
         MdcLcuData_t                         *mdc_sb_array;
 
@@ -13834,7 +13864,7 @@ extern "C" {
         uint8_t   height;
         uint8_t   is_complete_sb;
         EbBool    raster_scan_cu_validity[CU_MAX_COUNT];
-        EbBool    block_is_inside_md_scan[BLOCK_MAX_COUNT];
+        EbBool    block_is_inside_md_scan[BLOCK_MAX_COUNT_SB_128];
         uint8_t   potential_logo_sb;
         uint8_t   is_edge_sb;
     } SbParams_t;
@@ -13848,7 +13878,7 @@ extern "C" {
         uint8_t    width;
         uint8_t    height;
         uint8_t    is_complete_sb;
-        EbBool     block_is_inside_md_scan[BLOCK_MAX_COUNT];
+        EbBool     block_is_inside_md_scan[BLOCK_MAX_COUNT_SB_128];
     } SbGeom_t;
 
     typedef struct CuStat_s {
@@ -13895,7 +13925,7 @@ extern "C" {
         // Data attached to the picture. This includes data passed from the application, or other data the encoder attaches
         // to the picture.
         EbLinkedListNode                     *data_ll_head_ptr;
-        // Pointer to data to be passed back to the application when picture encoding is done
+        // pointer to data to be passed back to the application when picture encoding is done
         EbLinkedListNode                     *app_out_data_ll_head_ptr;
 
         EbBufferHeaderType                   *input_ptr;            // input picture buffer 
@@ -13969,6 +13999,9 @@ extern "C" {
         uint8_t                              *zz_cost_array;
         // Non moving index array
         uint8_t                              *non_moving_index_array;
+#if NEW_PRED_STRUCT
+        int                                   kf_zeromotion_pct; // percent of zero motion blocks
+#endif
         uint8_t                               fade_out_from_black;
         uint8_t                               fade_in_to_black;
         EbBool                                is_pan;
@@ -14054,39 +14087,39 @@ extern "C" {
         EbPred                                pred_structure;
         uint8_t                               hierarchical_levels;
         uint16_t                              full_sb_count;
-        
+#if NEW_PRED_STRUCT
+        EbBool                                init_pred_struct_position_flag;
+        int8_t                                hierarchical_layers_diff;
+#endif        
         // ME Tools
         EbBool                                use_subpel_flag;
         EbBool                                enable_hme_flag;
         EbBool                                enable_hme_level0_flag;
         EbBool                                enable_hme_level1_flag;
         EbBool                                enable_hme_level2_flag;
-#if !ME_HME_OQ
-        // ME Parameters
-        uint8_t                               search_area_width;
-        uint8_t                               search_area_height;
-        // HME Parameters
-        uint16_t                              number_hme_search_region_in_width;
-        uint16_t                              number_hme_search_region_in_height;
-        uint16_t                              hme_level0_total_search_area_width;
-        uint16_t                              hme_level0_total_search_area_height;
-        uint16_t                              hme_level0_search_area_in_width_array[EB_HME_SEARCH_AREA_COLUMN_MAX_COUNT];
-        uint16_t                              hme_level0_search_area_in_height_array[EB_HME_SEARCH_AREA_ROW_MAX_COUNT];
-        uint16_t                              hme_level1_search_area_in_width_array[EB_HME_SEARCH_AREA_COLUMN_MAX_COUNT];
-        uint16_t                              hme_level1_search_area_in_height_array[EB_HME_SEARCH_AREA_ROW_MAX_COUNT];
-        uint16_t                              hme_level2_search_area_in_width_array[EB_HME_SEARCH_AREA_COLUMN_MAX_COUNT];
-        uint16_t                              hme_level2_search_area_in_height_array[EB_HME_SEARCH_AREA_ROW_MAX_COUNT];
-#endif
+
         // MD
         EbEncMode                             enc_mode;
-        EbPictureDepthMode                    depth_mode;
+#if ADAPTIVE_DEPTH_PARTITIONING
+        EB_SB_DEPTH_MODE                     *sb_depth_mode_array;
+#else
         EbLcuDepthMode                       *sb_md_mode_array;
+#endif		
+#if !CHROMA_BLIND
         EbChromaMode                          chroma_mode;
-        EbSbComplexityStatus                *complex_sb_array;
+#endif
+        EbSbComplexityStatus                 *complex_sb_array;
         EbCu8x8Mode                           cu8x8_mode;
         EbBool                                use_src_ref;
         EbBool                                limit_ois_to_dc_mode_flag;
 
+        // Multi-modes signal(s) 
+        EbPictureDepthMode                    pic_depth_mode;
+        uint8_t                               loop_filter_mode;
+        uint8_t                               intra_pred_mode;
+#if TWO_FAST_LOOP
+        uint8_t                               enable_two_fast_loops;
+#endif
         //**********************************************************************************************************//
         FRAME_TYPE                            av1FrameType;
         Av1RpsNode_t                          av1RefSignal;
@@ -14227,16 +14260,25 @@ extern "C" {
         int16_t                               tiltMvy;
         EbWarpedMotionParams                  global_motion[TOTAL_REFS_PER_FRAME];
         PictureControlSet_t                  *childPcs;
-        int32_t                               use_fast_interpolation_filter_search;
         Macroblock                           *av1x;
         int32_t                               film_grain_params_present; //todo (AN): Do we need this flag at picture level?
         aom_film_grain_t                      film_grain_params;
         struct aom_denoise_and_model_t       *denoise_and_model;
         EbBool                                enable_in_loop_motion_estimation_flag;
-#if DISABLE_NSQ_FOR_NON_REF || DISABLE_NSQ
-        uint8_t                               non_square_block_flag;
-        uint8_t                               small_block_flag;
+#if REST_M       
+        RestUnitSearchInfo                   *rusi_picture[3];//for 3 planes
 #endif
+#if FAST_CDEF
+        int8_t                                cdef_filter_mode;
+        int32_t                               cdef_frame_strength;
+        int32_t                               cdf_ref_frame_strenght;
+        int32_t                               use_ref_frame_cdef_strength;
+#endif
+        uint8_t                               tx_search_level;
+        uint64_t                              tx_weight;
+        uint8_t                               tx_search_reduced_set;
+        uint8_t                               interpolation_search_level;
+        uint8_t                               nsq_search_level;
 
     } PictureParentControlSet_t;
 
@@ -14251,10 +14293,8 @@ extern "C" {
         uint16_t                           bot_padding;
         EB_BITDEPTH                        bit_depth;
         uint32_t                           sb_sz;
-#if MEM_RED
         uint32_t                           sb_size_pix;   //since we still have lot of code assuming 64x64 LCU, we add a new paramter supporting both128x128 and 64x64, 
                                                           //ultimately the fixed code supporting 64x64 should be upgraded to use 128x128 and the above could be removed.
-#endif
         uint32_t                           max_depth;
         EbBool                             is16bit;
         uint32_t                           ten_bit_format;
@@ -14499,13 +14539,13 @@ extern "C" {
     /**************************************
      * Extern Function Declarations
      **************************************/
-    extern EbErrorType PictureControlSetCtor(
+    extern EbErrorType picture_control_set_ctor(
         EbPtr *object_dbl_ptr,
         EbPtr  object_init_data_ptr);
 
-    extern EbErrorType PictureParentControlSetCtor(
+    extern EbErrorType picture_parent_control_set_ctor(
         EbPtr *object_dbl_ptr,
-        EbPtr object_init_data_ptr);
+        EbPtr  object_init_data_ptr);
 
 
 #ifdef __cplusplus

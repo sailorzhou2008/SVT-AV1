@@ -7,7 +7,7 @@
 #define EbEncHandle_h
 
 #include "EbDefinitions.h"
-#include "EbApi.h"
+#include "EbSvtAv1Enc.h"
 #include "EbPictureBufferDesc.h"
 #include "EbSystemResourceManager.h"
 #include "EbSequenceControlSet.h"
@@ -23,7 +23,7 @@ typedef struct EbEncHandle_s
 {
     // Encode Instances & Compute Segments
     uint32_t                                  encodeInstanceTotalCount;
-    uint32_t                                 *computeSegmentsTotalCountArray;
+    uint32_t                                 *compute_segments_total_count_array;
 
     // Config Set Counts
     uint32_t                                  sequenceControlSetPoolTotalCount;
@@ -40,7 +40,7 @@ typedef struct EbEncHandle_s
     // Config Set Pool & Active Array
     EbSystemResource_t                     *sequenceControlSetPoolPtr;
     EbFifo_t                              **sequenceControlSetPoolProducerFifoPtrArray;
-    EbSequenceControlSetInstance_t        **sequenceControlSetInstanceArray;
+    EbSequenceControlSetInstance_t        **sequence_control_set_instance_array;
 
     // Full Results
     EbSystemResource_t                    **pictureControlSetPoolPtrArray;
@@ -71,6 +71,11 @@ typedef struct EbEncHandle_s
     EbHandle                              *modeDecisionConfigurationThreadHandleArray;
     EbHandle                              *encDecThreadHandleArray;
     EbHandle                              *entropyCodingThreadHandleArray;
+#if FILT_PROC
+    EbHandle                              *dlfThreadHandleArray;
+    EbHandle                              *cdefThreadHandleArray;
+    EbHandle                              *restThreadHandleArray;
+#endif
     EbHandle                               packetizationThreadHandle;
 
     // Contexts
@@ -86,6 +91,11 @@ typedef struct EbEncHandle_s
     EbPtr                                 *modeDecisionConfigurationContextPtrArray;
     EbPtr                                 *encDecContextPtrArray;
     EbPtr                                 *entropyCodingContextPtrArray;
+#if FILT_PROC
+    EbPtr                                 *dlfContextPtrArray;
+    EbPtr                                 *cdefContextPtrArray;
+    EbPtr                                 *restContextPtrArray;
+#endif
     EbPtr                                  packetizationContextPtr;
 
     // System Resource Managers
@@ -104,6 +114,11 @@ typedef struct EbEncHandle_s
     EbSystemResource_t                     *encDecTasksResourcePtr;
     EbSystemResource_t                     *encDecResultsResourcePtr;
     EbSystemResource_t                     *entropyCodingResultsResourcePtr;
+#if FILT_PROC
+    EbSystemResource_t                     *dlfResultsResourcePtr;
+    EbSystemResource_t                     *cdefResultsResourcePtr;
+    EbSystemResource_t                     *restResultsResourcePtr;
+#endif
 
     // Inter-Process Producer Fifos
     EbFifo_t                              **input_buffer_producer_fifo_ptr_array;
@@ -122,6 +137,11 @@ typedef struct EbEncHandle_s
     EbFifo_t                              **encDecTasksProducerFifoPtrArray;
     EbFifo_t                              **encDecResultsProducerFifoPtrArray;
     EbFifo_t                              **entropyCodingResultsProducerFifoPtrArray;
+#if FILT_PROC
+    EbFifo_t                              **dlfResultsProducerFifoPtrArray;
+    EbFifo_t                              **cdefResultsProducerFifoPtrArray;
+    EbFifo_t                              **restResultsProducerFifoPtrArray;
+#endif
 
     // Inter-Process Consumer Fifos
     EbFifo_t                              **input_buffer_consumer_fifo_ptr_array;
@@ -139,14 +159,18 @@ typedef struct EbEncHandle_s
     EbFifo_t                              **encDecTasksConsumerFifoPtrArray;
     EbFifo_t                              **encDecResultsConsumerFifoPtrArray;
     EbFifo_t                              **entropyCodingResultsConsumerFifoPtrArray;
-
+#if FILT_PROC
+    EbFifo_t                              **dlfResultsConsumerFifoPtrArray;
+    EbFifo_t                              **cdefResultsConsumerFifoPtrArray;
+    EbFifo_t                              **restResultsConsumerFifoPtrArray;
+#endif
     // Callbacks
     EbCallback_t                          **app_callback_ptr_array;
 
     // Memory Map
-    EbMemoryMapEntry                       *memoryMap;
-    uint32_t                                memoryMapIndex;
-    uint64_t                                totalLibMemory;
+    EbMemoryMapEntry                       *memory_map;
+    uint32_t                                memory_map_index;
+    uint64_t                                total_lib_memory;
 
 } EbEncHandle_t;
 

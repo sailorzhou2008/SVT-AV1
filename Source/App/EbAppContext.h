@@ -6,7 +6,7 @@
 #ifndef EbAppContext_h
 #define EbAppContext_h
 
-#include "EbApi.h"
+#include "EbSvtAv1Enc.h"
 #include "EbAppConfig.h"
 
 /***************************************
@@ -28,7 +28,7 @@ typedef struct EbAppContext_s {
     // Buffer Pools
     EbBufferHeaderType                *inputBufferPool;
     EbBufferHeaderType                *streamBufferPool;
-    EbBufferHeaderType                *reconBuffer;
+    EbBufferHeaderType                *recon_buffer;
 
     // Instance Index
     uint8_t                            instanceIdx;
