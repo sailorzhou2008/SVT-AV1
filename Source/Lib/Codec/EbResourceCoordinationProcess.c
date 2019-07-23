@@ -14,167 +14,21 @@
 #include "EbResourceCoordinationProcess.h"
 #include "EbResourceCoordinationResults.h"
 #include "EbTransforms.h"
-#include "EbTime.h"
+#include "EbSvtAv1Time.h"
 
-#if !ME_HME_OQ
-// HME LEVEL 0
-uint8_t EnableHmeLevel0Flag[5][MAX_SUPPORTED_MODES] = {
-    { 1, 1, 1, 1, 1, 1, 1, 1 },
-    { 1, 1, 1, 1, 1, 1, 1, 1 },
-    { 1, 1, 1, 1, 1, 1, 1, 1 },
-    { 1, 1, 1, 1, 1, 1, 1, 1 },
-    { 1, 1, 1, 1, 1, 1, 1, 1 },
-};
-uint16_t HmeLevel0TotalSearchAreaWidth[5][MAX_SUPPORTED_MODES] = {
-    { 48, 48, 32, 32, 32, 24, 24, 24 },
-    { 64, 64, 48, 48, 48, 32, 32, 32 },
-    { 96, 96, 64, 64, 64, 48, 48, 48 },
-    { 96, 96, 64, 64, 48, 48, 48, 48 },
-    { 128, 128, 96, 64, 64, 64, 64, 64 }
-};
-uint16_t HmeLevel0TotalSearchAreaHeight[5][MAX_SUPPORTED_MODES] = {
-    { 24, 24, 16, 16, 16, 12, 12, 12 },
-    { 32, 32, 32, 32, 32, 24, 24, 24 },
-    { 32, 32, 32, 32, 32, 16, 16, 16 },
-    { 48, 48, 48, 48, 32, 40, 40, 40 },
-    { 80, 80, 64, 32, 32, 32, 32, 32 }
-};
-uint16_t HmeLevel0SearchAreaInWidthArray_Left[5][MAX_SUPPORTED_MODES] = {
-    { 24, 24, 16, 16, 16, 12, 12, 12 },
-    { 32, 32, 24, 24, 24, 16, 16, 16 },
-    { 48, 48, 32, 32, 32, 24, 24, 24 },
-    { 48, 48, 32, 32, 24, 24, 24, 24 },
-    { 64, 64, 48, 32, 32, 32, 32, 32 }
-};
-uint16_t HmeLevel0SearchAreaInWidthArray_Right[5][MAX_SUPPORTED_MODES] = {
-    { 24, 24, 16, 16, 16, 12, 12, 12 },
-    { 32, 32, 24, 24, 24, 16, 16, 16 },
-    { 48, 48, 32, 32, 32, 24, 24, 24 },
-    { 48, 48, 32, 32, 24, 24, 24, 24 },
-    { 64, 64, 48, 32, 32, 32, 32, 32 }
-};
-uint16_t HmeLevel0SearchAreaInHeightArray_Top[5][MAX_SUPPORTED_MODES] = {
-    { 12, 12, 8, 8, 8, 6, 6, 6 },
-    { 16, 16, 16, 16, 16, 12, 12, 12 },
-    { 16, 16, 16, 16, 16, 8, 8, 8 },
-    { 24, 24, 24, 24, 16, 20, 20, 20 },
-    { 40, 40, 32, 16, 16, 16, 16, 16 }
-};
-uint16_t HmeLevel0SearchAreaInHeightArray_Bottom[5][MAX_SUPPORTED_MODES] = {
-    { 12, 12, 8, 8, 8, 6, 6, 6 },
-    { 16, 16, 16, 16, 16, 12, 12, 12 },
-    { 16, 16, 16, 16, 16, 8, 8, 8 },
-    { 24, 24, 24, 24, 16, 20, 20, 20 },
-    { 40, 40, 32, 16, 16, 16, 16, 16 }
-};
-// HME LEVEL 1
-uint8_t EnableHmeLevel1Flag[5][MAX_SUPPORTED_MODES] = {
-    { 1, 1, 1, 1, 1, 1, 1, 1 },
-    { 1, 1, 1, 1, 1, 1, 1, 1 },
-    { 1, 1, 1, 1, 1, 1, 1, 1 },
-    { 1, 1, 1, 1, 1, 1, 1, 1 },
-    { 1, 1, 0, 0, 0, 0, 0, 0 }
-};
-uint16_t HmeLevel1SearchAreaInWidthArray_Left[5][MAX_SUPPORTED_MODES] = {
-    { 16, 16, 16, 16, 8, 8, 8, 8 },
-    { 16, 16, 16, 16, 8, 8, 8, 8 },
-    { 16, 16, 16, 16, 8, 8, 8, 8 },
-    { 16, 16, 8, 8, 8, 8, 8, 8 },
-    { 16, 16, 0, 0, 0, 0, 0, 0 }
-};
-uint16_t HmeLevel1SearchAreaInWidthArray_Right[5][MAX_SUPPORTED_MODES] = {
-    { 16, 16, 16, 16, 8, 8, 8, 8 },
-    { 16, 16, 16, 16, 8, 8, 8, 8 },
-    { 16, 16, 16, 16, 8, 8, 8, 8 },
-    { 16, 16, 8, 8, 8, 8, 8, 8 },
-    { 16, 16, 0, 0, 0, 0, 0, 0 }
-};
-uint16_t HmeLevel1SearchAreaInHeightArray_Top[5][MAX_SUPPORTED_MODES] = {
-    { 7, 7, 7, 7, 3, 3, 3, 3 },
-    { 7, 7, 7, 7, 3, 3, 3, 3 },
-    { 7, 7, 7, 7, 3, 3, 3, 3 },
-    { 7, 7, 3, 3, 3, 3, 3, 3 },
-    { 9, 9, 0, 0, 0, 0, 0, 0 }
-};
-uint16_t HmeLevel1SearchAreaInHeightArray_Bottom[5][MAX_SUPPORTED_MODES] = {
-    { 7, 7, 7, 7, 3, 3, 3, 3 },
-    { 7, 7, 7, 7, 3, 3, 3, 3 },
-    { 7, 7, 7, 7, 3, 3, 3, 3 },
-    { 7, 7, 3, 3, 3, 3, 3, 3 },
-    { 9, 9, 0, 0, 0, 0, 0, 0 }
-};
-// HME LEVEL 2
-uint8_t EnableHmeLevel2Flag[5][MAX_SUPPORTED_MODES] = {
-    { 1, 1, 1, 1, 0, 0, 0, 0 },
-    { 1, 1, 1, 1, 0, 0, 0, 0 },
-    { 1, 1, 1, 1, 0, 0, 0, 0 },
-    { 1, 1, 0, 0, 0, 0, 0, 0 },
-    { 0, 0, 0, 0, 0, 0, 0, 0 }
-};
-uint16_t HmeLevel2SearchAreaInWidthArray_Left[5][MAX_SUPPORTED_MODES] = {
-    { 8, 8, 8, 8, 0, 0, 0, 0 },
-    { 8, 8, 8, 8, 0, 0, 0, 0 },
-    { 8, 8, 8, 8, 0, 0, 0, 0 },
-    { 8, 8, 0, 0, 0, 0, 0, 0 },
-    { 0, 0, 0, 0, 0, 0, 0, 0 }
-};
-uint16_t HmeLevel2SearchAreaInWidthArray_Right[5][MAX_SUPPORTED_MODES] = {
-    { 8, 8, 8, 8, 0, 0, 0, 0 },
-    { 8, 8, 8, 8, 0, 0, 0, 0 },
-    { 8, 8, 8, 8, 0, 0, 0, 0 },
-    { 8, 8, 0, 0, 0, 0, 0, 0 },
-    { 0, 0, 0, 0, 0, 0, 0, 0 }
-};
-uint16_t HmeLevel2SearchAreaInHeightArray_Top[5][MAX_SUPPORTED_MODES] = {
-    { 3, 3, 3, 3, 0, 0, 0, 0 },
-    { 3, 3, 3, 3, 0, 0, 0, 0 },
-    { 3, 3, 3, 3, 0, 0, 0, 0 },
-    { 3, 3, 0, 0, 0, 0, 0, 0 },
-    { 0, 0, 0, 0, 0, 0, 0, 0 }
-};
-uint16_t HmeLevel2SearchAreaInHeightArray_Bottom[5][MAX_SUPPORTED_MODES] = {
-    { 3, 3, 3, 3, 0, 0, 0, 0 },
-    { 3, 3, 3, 3, 0, 0, 0, 0 },
-    { 3, 3, 3, 3, 0, 0, 0, 0 },
-    { 3, 3, 0, 0, 0, 0, 0, 0 },
-    { 0, 0, 0, 0, 0, 0, 0, 0 }
-};
-
-uint8_t SearchAreaWidth[5][MAX_SUPPORTED_MODES] = {
-
-    { 16, 16, 16, 16, 8, 8, 8, 8 },
-    { 16, 16, 16, 16, 8, 8, 8, 8 },
-    { 16, 16, 16, 16, 8, 8, 8, 8 },
-    { 16, 16, 8, 8, 8, 8, 8, 8 },
-    { 24, 24, 16, 16, 16, 8, 8, 8 }
-
-};
-
-uint8_t SearchAreaHeight[5][MAX_SUPPORTED_MODES] = {
-
-    {  7, 7, 7, 7, 5, 5, 5, 5 },
-    { 9, 9, 9, 9, 7, 7, 7, 7 },
-    { 7, 7, 7, 7, 5, 5, 5, 5 },
-    { 13, 13, 7, 7, 7, 7, 5, 5 },
-    { 23, 23, 13, 7, 7, 7, 7, 7 }
-
-};
-
-
-#endif
 /************************************************
  * Resource Coordination Context Constructor
  ************************************************/
-EbErrorType ResourceCoordinationContextCtor(
+EbErrorType resource_coordination_context_ctor(
     ResourceCoordinationContext_t  **context_dbl_ptr,
     EbFifo_t                        *inputBufferFifoPtr,
-    EbFifo_t                        *resourceCoordinationResultsOutputFifoPtr,
-    EbFifo_t                        **pictureControlSetFifoPtrArray,
-    EbSequenceControlSetInstance_t  **sequenceControlSetInstanceArray,
-    EbFifo_t                         *sequenceControlSetEmptyFifoPtr,
-    EbCallback_t                    **appCallbackPtrArray,
-    uint32_t                         *computeSegmentsTotalCountArray,
-    uint32_t                          encodeInstancesTotalCount)
+    EbFifo_t                        *resource_coordination_results_output_fifo_ptr,
+    EbFifo_t                        **picture_control_set_fifo_ptr_array,
+    EbSequenceControlSetInstance_t  **sequence_control_set_instance_array,
+    EbFifo_t                         *sequence_control_set_empty_fifo_ptr,
+    EbCallback_t                    **app_callback_ptr_array,
+    uint32_t                         *compute_segments_total_count_array,
+    uint32_t                          encode_instances_total_count)
 {
     uint32_t instanceIndex;
 
@@ -184,25 +38,25 @@ EbErrorType ResourceCoordinationContextCtor(
     *context_dbl_ptr = context_ptr;
 
     context_ptr->input_buffer_fifo_ptr = inputBufferFifoPtr;
-    context_ptr->resourceCoordinationResultsOutputFifoPtr = resourceCoordinationResultsOutputFifoPtr;
-    context_ptr->pictureControlSetFifoPtrArray = pictureControlSetFifoPtrArray;
-    context_ptr->sequenceControlSetInstanceArray = sequenceControlSetInstanceArray;
-    context_ptr->sequenceControlSetEmptyFifoPtr = sequenceControlSetEmptyFifoPtr;
-    context_ptr->appCallbackPtrArray = appCallbackPtrArray;
-    context_ptr->computeSegmentsTotalCountArray = computeSegmentsTotalCountArray;
-    context_ptr->encodeInstancesTotalCount = encodeInstancesTotalCount;
+    context_ptr->resource_coordination_results_output_fifo_ptr = resource_coordination_results_output_fifo_ptr;
+    context_ptr->picture_control_set_fifo_ptr_array = picture_control_set_fifo_ptr_array;
+    context_ptr->sequence_control_set_instance_array = sequence_control_set_instance_array;
+    context_ptr->sequence_control_set_empty_fifo_ptr = sequence_control_set_empty_fifo_ptr;
+    context_ptr->app_callback_ptr_array = app_callback_ptr_array;
+    context_ptr->compute_segments_total_count_array = compute_segments_total_count_array;
+    context_ptr->encode_instances_total_count = encode_instances_total_count;
 
     // Allocate SequenceControlSetActiveArray
-    EB_MALLOC(EbObjectWrapper_t**, context_ptr->sequenceControlSetActiveArray, sizeof(EbObjectWrapper_t*) * context_ptr->encodeInstancesTotalCount, EB_N_PTR);
+    EB_MALLOC(EbObjectWrapper_t**, context_ptr->sequenceControlSetActiveArray, sizeof(EbObjectWrapper_t*) * context_ptr->encode_instances_total_count, EB_N_PTR);
 
-    for (instanceIndex = 0; instanceIndex < context_ptr->encodeInstancesTotalCount; ++instanceIndex) {
+    for (instanceIndex = 0; instanceIndex < context_ptr->encode_instances_total_count; ++instanceIndex) {
         context_ptr->sequenceControlSetActiveArray[instanceIndex] = 0;
     }
 
     // Picture Stats
-    EB_MALLOC(uint64_t*, context_ptr->pictureNumberArray, sizeof(uint64_t) * context_ptr->encodeInstancesTotalCount, EB_N_PTR);
+    EB_MALLOC(uint64_t*, context_ptr->pictureNumberArray, sizeof(uint64_t) * context_ptr->encode_instances_total_count, EB_N_PTR);
 
-    for (instanceIndex = 0; instanceIndex < context_ptr->encodeInstancesTotalCount; ++instanceIndex) {
+    for (instanceIndex = 0; instanceIndex < context_ptr->encode_instances_total_count; ++instanceIndex) {
         context_ptr->pictureNumberArray[instanceIndex] = 0;
     }
 
@@ -228,159 +82,26 @@ EbErrorType ResourceCoordinationContextCtor(
     return EB_ErrorNone;
 }
 
-#if !ME_HME_OQ
-// Set ME/HME Params
-void* SetMeHmeParams(
-    PictureParentControlSet_t       *picture_control_set_ptr,
-    SequenceControlSet_t                *sequence_control_set_ptr,
-    EbInputResolution                 input_resolution)
-{
-
-    uint8_t  encModeIndex = picture_control_set_ptr->enc_mode;
-
-    uint32_t inputRatio = sequence_control_set_ptr->luma_width / sequence_control_set_ptr->luma_height;
-
-    uint8_t resolutionIndex = input_resolution <= INPUT_SIZE_576p_RANGE_OR_LOWER ? 0 : // 480P
-        (input_resolution <= INPUT_SIZE_1080i_RANGE && inputRatio < 2) ? 1 : // 720P
-        (input_resolution <= INPUT_SIZE_1080i_RANGE && inputRatio > 3) ? 2 : // 1080I
-        (input_resolution <= INPUT_SIZE_1080p_RANGE) ? 3 : // 1080I
-        4; // 4K
-
-#if V2_HME_ME_SR
-    if (picture_control_set_ptr->enc_mode > ENC_M1 /*|| sequence_control_set_ptr->static_config.tune == TUNE_VQ*/) {
-
-#endif
-        // HME/ME default settings
-        picture_control_set_ptr->enable_hme_flag = EB_TRUE;
-        picture_control_set_ptr->number_hme_search_region_in_width = 2;
-        picture_control_set_ptr->number_hme_search_region_in_height = 2;
-        picture_control_set_ptr->enable_hme_level0_flag = EnableHmeLevel0Flag[resolutionIndex][encModeIndex];
-        picture_control_set_ptr->hme_level0_total_search_area_width = HmeLevel0TotalSearchAreaWidth[resolutionIndex][encModeIndex];
-        picture_control_set_ptr->hme_level0_total_search_area_height = HmeLevel0TotalSearchAreaHeight[resolutionIndex][encModeIndex];
-        picture_control_set_ptr->hme_level0_search_area_in_width_array[0] = HmeLevel0SearchAreaInWidthArray_Right[resolutionIndex][encModeIndex];
-        picture_control_set_ptr->hme_level0_search_area_in_width_array[1] = HmeLevel0SearchAreaInWidthArray_Left[resolutionIndex][encModeIndex];
-        picture_control_set_ptr->hme_level0_search_area_in_height_array[0] = HmeLevel0SearchAreaInHeightArray_Top[resolutionIndex][encModeIndex];
-        picture_control_set_ptr->hme_level0_search_area_in_height_array[1] = HmeLevel0SearchAreaInHeightArray_Bottom[resolutionIndex][encModeIndex];
-        picture_control_set_ptr->enable_hme_level1_flag = EnableHmeLevel1Flag[resolutionIndex][encModeIndex];
-        picture_control_set_ptr->hme_level1_search_area_in_width_array[0] = HmeLevel1SearchAreaInWidthArray_Right[resolutionIndex][encModeIndex];
-        picture_control_set_ptr->hme_level1_search_area_in_width_array[1] = HmeLevel1SearchAreaInWidthArray_Left[resolutionIndex][encModeIndex];
-        picture_control_set_ptr->hme_level1_search_area_in_height_array[0] = HmeLevel1SearchAreaInHeightArray_Top[resolutionIndex][encModeIndex];
-        picture_control_set_ptr->hme_level1_search_area_in_height_array[1] = HmeLevel1SearchAreaInHeightArray_Bottom[resolutionIndex][encModeIndex];
-        picture_control_set_ptr->enable_hme_level2_flag = EnableHmeLevel2Flag[resolutionIndex][encModeIndex];
-        picture_control_set_ptr->hme_level2_search_area_in_width_array[0] = HmeLevel2SearchAreaInWidthArray_Right[resolutionIndex][encModeIndex];
-        picture_control_set_ptr->hme_level2_search_area_in_width_array[1] = HmeLevel2SearchAreaInWidthArray_Left[resolutionIndex][encModeIndex];
-        picture_control_set_ptr->hme_level2_search_area_in_height_array[0] = HmeLevel2SearchAreaInHeightArray_Top[resolutionIndex][encModeIndex];
-        picture_control_set_ptr->hme_level2_search_area_in_height_array[1] = HmeLevel2SearchAreaInHeightArray_Bottom[resolutionIndex][encModeIndex];
-
-
-        picture_control_set_ptr->search_area_width = SearchAreaWidth[resolutionIndex][encModeIndex];
-        picture_control_set_ptr->search_area_height = SearchAreaHeight[resolutionIndex][encModeIndex];
-
-
-        // HME Level0 adjustment for low frame rate contents (frame rate <= 30)
-
-        if (input_resolution == INPUT_SIZE_4K_RANGE) {
-            if ((sequence_control_set_ptr->static_config.frame_rate >> 16) <= 30) {
-
-                if (picture_control_set_ptr->enc_mode == ENC_M2) {
-                    picture_control_set_ptr->hme_level0_total_search_area_width = 124;
-                    picture_control_set_ptr->hme_level0_total_search_area_height = 64;
-                    picture_control_set_ptr->hme_level0_search_area_in_width_array[0] = 62;
-                    picture_control_set_ptr->hme_level0_search_area_in_width_array[1] = 62;
-                    picture_control_set_ptr->hme_level0_search_area_in_height_array[0] = 32;
-                    picture_control_set_ptr->hme_level0_search_area_in_height_array[1] = 32;
-                }
-                else if (picture_control_set_ptr->enc_mode == ENC_M3) {
-                    picture_control_set_ptr->hme_level0_total_search_area_width = 96;
-                    picture_control_set_ptr->hme_level0_total_search_area_height = 64;
-                    picture_control_set_ptr->hme_level0_search_area_in_width_array[0] = 48;
-                    picture_control_set_ptr->hme_level0_search_area_in_width_array[1] = 48;
-                    picture_control_set_ptr->hme_level0_search_area_in_height_array[0] = 32;
-                    picture_control_set_ptr->hme_level0_search_area_in_height_array[1] = 32;
-                }
-                else if (picture_control_set_ptr->enc_mode == ENC_M4) {
-                    picture_control_set_ptr->hme_level0_total_search_area_width = 64;
-                    picture_control_set_ptr->hme_level0_total_search_area_height = 48;
-                    picture_control_set_ptr->hme_level0_search_area_in_width_array[0] = 32;
-                    picture_control_set_ptr->hme_level0_search_area_in_width_array[1] = 32;
-                    picture_control_set_ptr->hme_level0_search_area_in_height_array[0] = 24;
-                    picture_control_set_ptr->hme_level0_search_area_in_height_array[1] = 24;
-                }
-                else if (picture_control_set_ptr->enc_mode >= ENC_M5) {
-                    picture_control_set_ptr->hme_level0_total_search_area_width = 64;
-                    picture_control_set_ptr->hme_level0_total_search_area_height = 48;
-                    picture_control_set_ptr->hme_level0_search_area_in_width_array[0] = 32;
-                    picture_control_set_ptr->hme_level0_search_area_in_width_array[1] = 32;
-                    picture_control_set_ptr->hme_level0_search_area_in_height_array[0] = 24;
-                    picture_control_set_ptr->hme_level0_search_area_in_height_array[1] = 24;
-                }
-            }
-        }
-#if V2_HME_ME_SR
-    }
-    else {
-        picture_control_set_ptr->enable_hme_flag = EB_TRUE;
-        picture_control_set_ptr->enable_hme_level0_flag = EB_TRUE;
-        picture_control_set_ptr->number_hme_search_region_in_width = 1;
-        picture_control_set_ptr->number_hme_search_region_in_height = 1;
-        picture_control_set_ptr->hme_level0_total_search_area_width = 64;
-        picture_control_set_ptr->hme_level0_total_search_area_height = 64;
-        picture_control_set_ptr->hme_level0_search_area_in_width_array[0] = 64;
-        picture_control_set_ptr->hme_level0_search_area_in_height_array[0] = 64;
-        picture_control_set_ptr->enable_hme_level1_flag = EB_TRUE;
-        picture_control_set_ptr->hme_level1_search_area_in_width_array[0] = 32;
-        picture_control_set_ptr->hme_level1_search_area_in_height_array[0] = 32;
-        picture_control_set_ptr->enable_hme_level2_flag = EB_TRUE;
-        picture_control_set_ptr->hme_level2_search_area_in_width_array[0] = 4;
-        picture_control_set_ptr->hme_level2_search_area_in_height_array[0] = 4;
-        picture_control_set_ptr->search_area_width = 32;
-        picture_control_set_ptr->search_area_height = 16;
-
-#if ME_128x128
-        picture_control_set_ptr->search_area_width = 128;
-        picture_control_set_ptr->search_area_height = 128;
-#endif
-#if ME_64x64
-        picture_control_set_ptr->search_area_width = 64;
-        picture_control_set_ptr->search_area_height = 64;
-#endif
-    }
-#endif
-
-
-    return EB_NULL;
-};
-#else
 /******************************************************
 * Derive Pre-Analysis settings for OQ
 Input   : encoder mode and tune
 Output  : Pre-Analysis signal(s)
 ******************************************************/
-EbErrorType SignalDerivationPreAnalysisOq(
+EbErrorType signal_derivation_pre_analysis_oq(
     SequenceControlSet_t       *sequence_control_set_ptr,
     PictureParentControlSet_t  *picture_control_set_ptr) {
 
     EbErrorType return_error = EB_ErrorNone;
-
     uint8_t input_resolution = sequence_control_set_ptr->input_resolution;
 
-
     // Derive HME Flag
-
     if (sequence_control_set_ptr->static_config.use_default_me_hme) {
-        uint8_t  hmeMeLevel = picture_control_set_ptr->enc_mode;
-
-        uint32_t inputRatio = sequence_control_set_ptr->luma_width / sequence_control_set_ptr->luma_height;
-        uint8_t resolutionIndex = input_resolution <= INPUT_SIZE_576p_RANGE_OR_LOWER ? 0 : // 480P
-            (input_resolution <= INPUT_SIZE_1080i_RANGE && inputRatio < 2) ? 1 : // 720P
-            (input_resolution <= INPUT_SIZE_1080i_RANGE && inputRatio > 3) ? 2 : // 1080I
-            (input_resolution <= INPUT_SIZE_1080p_RANGE) ? 3 : // 1080I
-            4;    // 4K
+        uint8_t  hme_me_level = picture_control_set_ptr->enc_mode;
 
         picture_control_set_ptr->enable_hme_flag = EB_TRUE;
-        picture_control_set_ptr->enable_hme_level0_flag = EnableHmeLevel0Flag[resolutionIndex][hmeMeLevel];
-        picture_control_set_ptr->enable_hme_level1_flag = EnableHmeLevel1Flag[resolutionIndex][hmeMeLevel];
-        picture_control_set_ptr->enable_hme_level2_flag = EnableHmeLevel2Flag[resolutionIndex][hmeMeLevel];
+        picture_control_set_ptr->enable_hme_level0_flag = EnableHmeLevel0Flag[input_resolution][hme_me_level];
+        picture_control_set_ptr->enable_hme_level1_flag = EnableHmeLevel1Flag[input_resolution][hme_me_level];
+        picture_control_set_ptr->enable_hme_level2_flag = EnableHmeLevel2Flag[input_resolution][hme_me_level];
     }
     else {
         picture_control_set_ptr->enable_hme_flag = sequence_control_set_ptr->static_config.enable_hme_flag;
@@ -388,11 +109,12 @@ EbErrorType SignalDerivationPreAnalysisOq(
         picture_control_set_ptr->enable_hme_level1_flag = sequence_control_set_ptr->static_config.enable_hme_level1_flag;
         picture_control_set_ptr->enable_hme_level2_flag = sequence_control_set_ptr->static_config.enable_hme_level2_flag;
     }
+    if (picture_control_set_ptr->enc_mode >= ENC_M7)
+        sequence_control_set_ptr->enable_restoration = 0;
 
     return return_error;
 }
 
-#endif
 //******************************************************************************//
 // Modify the Enc mode based on the buffer Status
 // Inputs: TargetSpeed, Status of the SCbuffer
@@ -417,7 +139,7 @@ void SpeedBufferControl(
     int64_t bufferTrshold1 = SC_FRAMES_INTERVAL_T1;
     int64_t bufferTrshold2 = SC_FRAMES_INTERVAL_T2;
     int64_t bufferTrshold3 = MIN(targetFps * 3, SC_FRAMES_INTERVAL_T3);
-    EbBlockOnMutex(sequence_control_set_ptr->encode_context_ptr->sc_buffer_mutex);
+    eb_block_on_mutex(sequence_control_set_ptr->encode_context_ptr->sc_buffer_mutex);
 
     if (sequence_control_set_ptr->encode_context_ptr->sc_frame_in == 0) {
         EbStartTime(&context_ptr->firstInPicArrivedTimeSeconds, &context_ptr->firstInPicArrivedTimeuSeconds);
@@ -558,7 +280,7 @@ void SpeedBufferControl(
     // Set the encoder level
     picture_control_set_ptr->enc_mode = sequence_control_set_ptr->encode_context_ptr->enc_mode;
 
-    EbReleaseMutex(sequence_control_set_ptr->encode_context_ptr->sc_buffer_mutex);
+    eb_release_mutex(sequence_control_set_ptr->encode_context_ptr->sc_buffer_mutex);
     context_ptr->prevEncMod = sequence_control_set_ptr->encode_context_ptr->enc_mode;
 }
 
@@ -675,7 +397,7 @@ void ResetPcsAv1(
 /***************************************
  * ResourceCoordination Kernel
  ***************************************/
-void* ResourceCoordinationKernel(void *input_ptr)
+void* resource_coordination_kernel(void *input_ptr)
 {
     ResourceCoordinationContext_t   *context_ptr = (ResourceCoordinationContext_t*)input_ptr;
 
@@ -700,49 +422,47 @@ void* ResourceCoordinationKernel(void *input_ptr)
 
     uint32_t                         input_size = 0;
     EbObjectWrapper_t               *prevPictureControlSetWrapperPtr = 0;
-#if !ME_HME_OQ
-    uint16_t                         hmeRegionIndex = 0;
-#endif
+    
     for (;;) {
 
         // Tie instanceIndex to zero for now...
         instanceIndex = 0;
 
         // Get the Next svt Input Buffer [BLOCKING]
-        EbGetFullObject(
+        eb_get_full_object(
             context_ptr->input_buffer_fifo_ptr,
             &ebInputWrapperPtr);
-        ebInputPtr = (EbBufferHeaderType*)ebInputWrapperPtr->objectPtr;
-        sequence_control_set_ptr = context_ptr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr;
+        ebInputPtr = (EbBufferHeaderType*)ebInputWrapperPtr->object_ptr;
+        sequence_control_set_ptr = context_ptr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr;
 
         // If config changes occured since the last picture began encoding, then
         //   prepare a new sequence_control_set_ptr containing the new changes and update the state
         //   of the previous Active SequenceControlSet
-        EbBlockOnMutex(context_ptr->sequenceControlSetInstanceArray[instanceIndex]->config_mutex);
-        if (context_ptr->sequenceControlSetInstanceArray[instanceIndex]->encode_context_ptr->initial_picture) {
+        eb_block_on_mutex(context_ptr->sequence_control_set_instance_array[instanceIndex]->config_mutex);
+        if (context_ptr->sequence_control_set_instance_array[instanceIndex]->encode_context_ptr->initial_picture) {
 
             // Update picture width, picture height, cropping right offset, cropping bottom offset, and conformance windows
-            if (context_ptr->sequenceControlSetInstanceArray[instanceIndex]->encode_context_ptr->initial_picture)
+            if (context_ptr->sequence_control_set_instance_array[instanceIndex]->encode_context_ptr->initial_picture)
 
             {
-                context_ptr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr->luma_width = context_ptr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr->max_input_luma_width;
-                context_ptr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr->luma_height = context_ptr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr->max_input_luma_height;
-                context_ptr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr->chroma_width = (context_ptr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr->max_input_luma_width >> 1);
-                context_ptr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr->chroma_height = (context_ptr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr->max_input_luma_height >> 1);
+                context_ptr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr->luma_width = context_ptr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr->max_input_luma_width;
+                context_ptr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr->luma_height = context_ptr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr->max_input_luma_height;
+                context_ptr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr->chroma_width = (context_ptr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr->max_input_luma_width >> 1);
+                context_ptr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr->chroma_height = (context_ptr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr->max_input_luma_height >> 1);
 
-                context_ptr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr->pad_right = context_ptr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr->max_input_pad_right;
-                context_ptr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr->cropping_right_offset = context_ptr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr->pad_right;
-                context_ptr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr->pad_bottom = context_ptr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr->max_input_pad_bottom;
-                context_ptr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr->cropping_bottom_offset = context_ptr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr->pad_bottom;
+                context_ptr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr->pad_right = context_ptr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr->max_input_pad_right;
+                context_ptr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr->cropping_right_offset = context_ptr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr->pad_right;
+                context_ptr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr->pad_bottom = context_ptr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr->max_input_pad_bottom;
+                context_ptr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr->cropping_bottom_offset = context_ptr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr->pad_bottom;
 
-                if (context_ptr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr->pad_right != 0 || context_ptr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr->pad_bottom != 0) {
-                    context_ptr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr->conformance_window_flag = 1;
+                if (context_ptr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr->pad_right != 0 || context_ptr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr->pad_bottom != 0) {
+                    context_ptr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr->conformance_window_flag = 1;
                 }
                 else {
-                    context_ptr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr->conformance_window_flag = 0;
+                    context_ptr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr->conformance_window_flag = 0;
                 }
 
-                input_size = context_ptr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr->luma_width * context_ptr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr->luma_height;
+                input_size = context_ptr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr->luma_width * context_ptr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr->luma_height;
             }
 
 
@@ -750,45 +470,45 @@ void* ResourceCoordinationKernel(void *input_ptr)
             previousSequenceControlSetWrapperPtr = context_ptr->sequenceControlSetActiveArray[instanceIndex];
 
             // Get empty SequenceControlSet [BLOCKING]
-            EbGetEmptyObject(
-                context_ptr->sequenceControlSetEmptyFifoPtr,
+            eb_get_empty_object(
+                context_ptr->sequence_control_set_empty_fifo_ptr,
                 &context_ptr->sequenceControlSetActiveArray[instanceIndex]);
 
             // Copy the contents of the active SequenceControlSet into the new empty SequenceControlSet
             copy_sequence_control_set(
-                (SequenceControlSet_t*)context_ptr->sequenceControlSetActiveArray[instanceIndex]->objectPtr,
-                context_ptr->sequenceControlSetInstanceArray[instanceIndex]->sequence_control_set_ptr);
+                (SequenceControlSet_t*)context_ptr->sequenceControlSetActiveArray[instanceIndex]->object_ptr,
+                context_ptr->sequence_control_set_instance_array[instanceIndex]->sequence_control_set_ptr);
 
             // Disable releaseFlag of new SequenceControlSet
-            EbObjectReleaseDisable(
+            eb_object_release_disable(
                 context_ptr->sequenceControlSetActiveArray[instanceIndex]);
 
             if (previousSequenceControlSetWrapperPtr != EB_NULL) {
 
                 // Enable releaseFlag of old SequenceControlSet
-                EbObjectReleaseEnable(
+                eb_object_release_enable(
                     previousSequenceControlSetWrapperPtr);
 
                 // Check to see if previous SequenceControlSet is already inactive, if TRUE then release the SequenceControlSet
                 if (previousSequenceControlSetWrapperPtr->liveCount == 0) {
-                    EbReleaseObject(
+                    eb_release_object(
                         previousSequenceControlSetWrapperPtr);
                 }
             }
         }
-        EbReleaseMutex(context_ptr->sequenceControlSetInstanceArray[instanceIndex]->config_mutex);
+        eb_release_mutex(context_ptr->sequence_control_set_instance_array[instanceIndex]->config_mutex);
 
         // Sequence Control Set is released by Rate Control after passing through MDC->MD->ENCDEC->Packetization->RateControl
         //   and in the PictureManager
-        EbObjectIncLiveCount(
+        eb_object_inc_live_count(
             context_ptr->sequenceControlSetActiveArray[instanceIndex],
             2);
 
         // Set the current SequenceControlSet
-        sequence_control_set_ptr = (SequenceControlSet_t*)context_ptr->sequenceControlSetActiveArray[instanceIndex]->objectPtr;
+        sequence_control_set_ptr = (SequenceControlSet_t*)context_ptr->sequenceControlSetActiveArray[instanceIndex]->object_ptr;
 
         // Init SB Params
-        if (context_ptr->sequenceControlSetInstanceArray[instanceIndex]->encode_context_ptr->initial_picture) {
+        if (context_ptr->sequence_control_set_instance_array[instanceIndex]->encode_context_ptr->initial_picture) {
             derive_input_resolution(
                 sequence_control_set_ptr,
                 input_size);
@@ -802,25 +522,25 @@ void* ResourceCoordinationKernel(void *input_ptr)
                 PM_MODE_1;
 
             // Construct PM Trans Coeff Shaping
-            if (context_ptr->sequenceControlSetInstanceArray[instanceIndex]->encode_context_ptr->initial_picture) {
+            if (context_ptr->sequence_control_set_instance_array[instanceIndex]->encode_context_ptr->initial_picture) {
                 if (sequence_control_set_ptr->pm_mode == PM_MODE_0) {
-                    ConstructPmTransCoeffShaping(sequence_control_set_ptr);
+                    construct_pm_trans_coeff_shaping(sequence_control_set_ptr);
                 }
             }
 
         }
 
         //Get a New ParentPCS where we will hold the new inputPicture
-        EbGetEmptyObject(
-            context_ptr->pictureControlSetFifoPtrArray[instanceIndex],
+        eb_get_empty_object(
+            context_ptr->picture_control_set_fifo_ptr_array[instanceIndex],
             &pictureControlSetWrapperPtr);
 
         // Parent PCS is released by the Rate Control after passing through MDC->MD->ENCDEC->Packetization
-        EbObjectIncLiveCount(
+        eb_object_inc_live_count(
             pictureControlSetWrapperPtr,
             1);
 
-        picture_control_set_ptr = (PictureParentControlSet_t*)pictureControlSetWrapperPtr->objectPtr;
+        picture_control_set_ptr = (PictureParentControlSet_t*)pictureControlSetWrapperPtr->object_ptr;
 
         picture_control_set_ptr->p_pcs_wrapper_ptr = pictureControlSetWrapperPtr;
 
@@ -828,7 +548,7 @@ void* ResourceCoordinationKernel(void *input_ptr)
         picture_control_set_ptr->enc_mode = sequence_control_set_ptr->static_config.enc_mode;
 
         // Keep track of the previous input for the ZZ SADs computation
-        picture_control_set_ptr->previous_picture_control_set_wrapper_ptr = (context_ptr->sequenceControlSetInstanceArray[instanceIndex]->encode_context_ptr->initial_picture) ?
+        picture_control_set_ptr->previous_picture_control_set_wrapper_ptr = (context_ptr->sequence_control_set_instance_array[instanceIndex]->encode_context_ptr->initial_picture) ?
             pictureControlSetWrapperPtr :
             sequence_control_set_ptr->encode_context_ptr->previous_picture_control_set_wrapper_ptr;
 
@@ -848,8 +568,8 @@ void* ResourceCoordinationKernel(void *input_ptr)
         picture_control_set_ptr->end_of_sequence_flag = end_of_sequence_flag;
 
         // Set Picture Control Flags
-        picture_control_set_ptr->idr_flag = sequence_control_set_ptr->encode_context_ptr->initial_picture || (picture_control_set_ptr->input_ptr->pic_type == EB_IDR_PICTURE);
-        picture_control_set_ptr->cra_flag = (picture_control_set_ptr->input_ptr->pic_type == EB_I_PICTURE) ? EB_TRUE : EB_FALSE;
+        picture_control_set_ptr->idr_flag = sequence_control_set_ptr->encode_context_ptr->initial_picture || (picture_control_set_ptr->input_ptr->pic_type == EB_AV1_KEY_PICTURE);
+        picture_control_set_ptr->cra_flag = (picture_control_set_ptr->input_ptr->pic_type == EB_AV1_INTRA_ONLY_PICTURE) ? EB_TRUE : EB_FALSE;
         picture_control_set_ptr->scene_change_flag = EB_FALSE;
         picture_control_set_ptr->qp_on_the_fly = EB_FALSE;
         picture_control_set_ptr->sb_total_count = sequence_control_set_ptr->sb_total_count;
@@ -874,55 +594,13 @@ void* ResourceCoordinationKernel(void *input_ptr)
             SCD_MODE_1;
 
         // Set the block mean calculation prec
-#if ENCODER_MODE_CLEANUP
         sequence_control_set_ptr->block_mean_calc_prec = BLOCK_MEAN_PREC_SUB;
-#else
-        sequence_control_set_ptr->block_mean_calc_prec = picture_control_set_ptr->enc_mode == ENC_M0 ?
-            BLOCK_MEAN_PREC_FULL :
-            BLOCK_MEAN_PREC_SUB;
-#endif
-#if ME_HME_OQ
+    
         // Pre-Analysis Signal(s) derivation
-        SignalDerivationPreAnalysisOq(
+        signal_derivation_pre_analysis_oq(
             sequence_control_set_ptr,
             picture_control_set_ptr);
-#else
-        // Set ME/HME Params
-        if (sequence_control_set_ptr->static_config.use_default_me_hme) { // Need third option
-            SetMeHmeParams(
-                picture_control_set_ptr,
-                sequence_control_set_ptr,
-                sequence_control_set_ptr->input_resolution);
-        }
-        else {
-            picture_control_set_ptr->enable_hme_flag = sequence_control_set_ptr->static_config.enable_hme_flag;
-
-            picture_control_set_ptr->enable_hme_level0_flag = sequence_control_set_ptr->static_config.enable_hme_level0_flag;
-            picture_control_set_ptr->enable_hme_level1_flag = sequence_control_set_ptr->static_config.enable_hme_level1_flag;
-            picture_control_set_ptr->enable_hme_level2_flag = sequence_control_set_ptr->static_config.enable_hme_level2_flag;
-
-            picture_control_set_ptr->search_area_width = (uint8_t)sequence_control_set_ptr->static_config.search_area_width;
-            picture_control_set_ptr->search_area_height = (uint8_t)sequence_control_set_ptr->static_config.search_area_height;
-
-            picture_control_set_ptr->number_hme_search_region_in_width = (uint16_t)sequence_control_set_ptr->static_config.number_hme_search_region_in_width;
-            picture_control_set_ptr->number_hme_search_region_in_height = (uint16_t)sequence_control_set_ptr->static_config.number_hme_search_region_in_height;
-
-            picture_control_set_ptr->hme_level0_total_search_area_width = (uint16_t)sequence_control_set_ptr->static_config.hme_level0_total_search_area_width;
-            picture_control_set_ptr->hme_level0_total_search_area_height = (uint16_t)sequence_control_set_ptr->static_config.hme_level0_total_search_area_height;
-
-            for (hmeRegionIndex = 0; hmeRegionIndex < picture_control_set_ptr->number_hme_search_region_in_width; ++hmeRegionIndex) {
-                picture_control_set_ptr->hme_level0_search_area_in_width_array[hmeRegionIndex] = (uint16_t)sequence_control_set_ptr->static_config.hme_level0_search_area_in_width_array[hmeRegionIndex];
-                picture_control_set_ptr->hme_level1_search_area_in_width_array[hmeRegionIndex] = (uint16_t)sequence_control_set_ptr->static_config.hme_level1_search_area_in_width_array[hmeRegionIndex];
-                picture_control_set_ptr->hme_level2_search_area_in_width_array[hmeRegionIndex] = (uint16_t)sequence_control_set_ptr->static_config.hme_level2_search_area_in_width_array[hmeRegionIndex];
-            }
-
-            for (hmeRegionIndex = 0; hmeRegionIndex < picture_control_set_ptr->number_hme_search_region_in_height; ++hmeRegionIndex) {
-                picture_control_set_ptr->hme_level0_search_area_in_height_array[hmeRegionIndex] = (uint16_t)sequence_control_set_ptr->static_config.hme_level0_search_area_in_height_array[hmeRegionIndex];
-                picture_control_set_ptr->hme_level1_search_area_in_height_array[hmeRegionIndex] = (uint16_t)sequence_control_set_ptr->static_config.hme_level1_search_area_in_height_array[hmeRegionIndex];
-                picture_control_set_ptr->hme_level2_search_area_in_height_array[hmeRegionIndex] = (uint16_t)sequence_control_set_ptr->static_config.hme_level2_search_area_in_height_array[hmeRegionIndex];
-            }
-        }
-#endif
+    
         // Rate Control
         // Set the ME Distortion and OIS Historgrams to zero
         if (sequence_control_set_ptr->static_config.rate_control_mode) {
@@ -952,34 +630,34 @@ void* ResourceCoordinationKernel(void *input_ptr)
         sequence_control_set_ptr->encode_context_ptr->initial_picture = EB_FALSE;
 
         // Get Empty Reference Picture Object
-        EbGetEmptyObject(
+        eb_get_empty_object(
             sequence_control_set_ptr->encode_context_ptr->pa_reference_picture_pool_fifo_ptr,
             &reference_picture_wrapper_ptr);
 
         picture_control_set_ptr->pa_reference_picture_wrapper_ptr = reference_picture_wrapper_ptr;
 
         // Give the new Reference a nominal liveCount of 1
-        EbObjectIncLiveCount(
+        eb_object_inc_live_count(
             picture_control_set_ptr->pa_reference_picture_wrapper_ptr,
             2);
 
-        EbObjectIncLiveCount(
+        eb_object_inc_live_count(
             pictureControlSetWrapperPtr,
             2);
     
-        ((EbPaReferenceObject_t*)picture_control_set_ptr->pa_reference_picture_wrapper_ptr->objectPtr)->inputPaddedPicturePtr->bufferY = picture_control_set_ptr->enhanced_picture_ptr->bufferY;
+        ((EbPaReferenceObject_t*)picture_control_set_ptr->pa_reference_picture_wrapper_ptr->object_ptr)->inputPaddedPicturePtr->buffer_y = picture_control_set_ptr->enhanced_picture_ptr->buffer_y;
         // Get Empty Output Results Object
         if (picture_control_set_ptr->picture_number > 0 && (prevPictureControlSetWrapperPtr != NULL))
         {
-            ((PictureParentControlSet_t       *)prevPictureControlSetWrapperPtr->objectPtr)->end_of_sequence_flag = end_of_sequence_flag;
-            EbGetEmptyObject(
-                context_ptr->resourceCoordinationResultsOutputFifoPtr,
+            ((PictureParentControlSet_t       *)prevPictureControlSetWrapperPtr->object_ptr)->end_of_sequence_flag = end_of_sequence_flag;
+            eb_get_empty_object(
+                context_ptr->resource_coordination_results_output_fifo_ptr,
                 &outputWrapperPtr);
-            outputResultsPtr = (ResourceCoordinationResults_t*)outputWrapperPtr->objectPtr;
+            outputResultsPtr = (ResourceCoordinationResults_t*)outputWrapperPtr->object_ptr;
             outputResultsPtr->pictureControlSetWrapperPtr = prevPictureControlSetWrapperPtr;
 
             // Post the finished Results Object
-            EbPostFullObject(outputWrapperPtr);
+            eb_post_full_object(outputWrapperPtr);
         }
         prevPictureControlSetWrapperPtr = pictureControlSetWrapperPtr;
     }

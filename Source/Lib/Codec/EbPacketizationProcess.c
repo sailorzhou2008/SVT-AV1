@@ -13,7 +13,7 @@
 #include "EbPictureControlSet.h"
 #include "EbEntropyCoding.h"
 #include "EbRateControlTasks.h"
-#include "EbTime.h"
+#include "EbSvtAv1Time.h"
 
 static EbBool IsPassthroughData(EbLinkedListNode* dataNode)
 {
@@ -31,21 +31,55 @@ static EbLinkedListNode* ExtractPassthroughData(EbLinkedListNode** llPtrPtr)
 }
 
 
-EbErrorType PacketizationContextCtor(
+EbErrorType packetization_context_ctor(
     PacketizationContext_t **context_dbl_ptr,
-    EbFifo_t                *entropyCodingInputFifoPtr,
-    EbFifo_t                *rateControlTasksOutputFifoPtr)
+    EbFifo_t                *entropy_coding_input_fifo_ptr,
+    EbFifo_t                *rate_control_tasks_output_fifo_ptr)
 {
     PacketizationContext_t *context_ptr;
     EB_MALLOC(PacketizationContext_t*, context_ptr, sizeof(PacketizationContext_t), EB_N_PTR);
     *context_dbl_ptr = context_ptr;
 
-    context_ptr->entropyCodingInputFifoPtr = entropyCodingInputFifoPtr;
-    context_ptr->rateControlTasksOutputFifoPtr = rateControlTasksOutputFifoPtr;
+    context_ptr->entropy_coding_input_fifo_ptr = entropy_coding_input_fifo_ptr;
+    context_ptr->rate_control_tasks_output_fifo_ptr = rate_control_tasks_output_fifo_ptr;
 
     EB_MALLOC(EbPPSConfig_t*, context_ptr->ppsConfig, sizeof(EbPPSConfig_t), EB_N_PTR);
 
     return EB_ErrorNone;
+}
+#define TD_SIZE                     2
+#define OBU_FRAME_HEADER_SIZE       3
+#define TILES_GROUP_SIZE            1
+
+// Write TD after offsetting the stream buffer 
+static void write_td (
+    EbBufferHeaderType  *out_str_ptr,
+    EbBool               show_ex,
+    EbBool               has_tiles){
+
+    uint8_t  td_buff[TD_SIZE] = { 0,0 };
+    uint8_t  obu_frame_header_size = has_tiles ? OBU_FRAME_HEADER_SIZE + TILES_GROUP_SIZE : OBU_FRAME_HEADER_SIZE;
+    if (out_str_ptr &&
+        (out_str_ptr->n_alloc_len > (out_str_ptr->n_filled_len + 2))) {
+
+        uint8_t *src_address = (show_ex == EB_FALSE) ?  out_str_ptr->p_buffer :
+                out_str_ptr->p_buffer + out_str_ptr->n_filled_len - (obu_frame_header_size);
+
+        uint8_t *dst_address = src_address + TD_SIZE;
+
+        uint32_t move_size   = (show_ex == EB_FALSE) ? out_str_ptr->n_filled_len :
+                               (obu_frame_header_size);
+
+        memmove(dst_address,
+                src_address,
+                move_size);
+
+        encode_td_av1((uint8_t*)(&td_buff));
+
+        EB_MEMCPY(src_address,
+                  &td_buff, 
+                  TD_SIZE);
+    }
 }
 
 void* PacketizationKernel(void *input_ptr)
@@ -82,12 +116,12 @@ void* PacketizationKernel(void *input_ptr)
     for (;;) {
 
         // Get EntropyCoding Results
-        EbGetFullObject(
-            context_ptr->entropyCodingInputFifoPtr,
+        eb_get_full_object(
+            context_ptr->entropy_coding_input_fifo_ptr,
             &entropyCodingResultsWrapperPtr);
-        entropyCodingResultsPtr = (EntropyCodingResults_t*)entropyCodingResultsWrapperPtr->objectPtr;
-        picture_control_set_ptr = (PictureControlSet_t*)entropyCodingResultsPtr->pictureControlSetWrapperPtr->objectPtr;
-        sequence_control_set_ptr = (SequenceControlSet_t*)picture_control_set_ptr->sequence_control_set_wrapper_ptr->objectPtr;
+        entropyCodingResultsPtr = (EntropyCodingResults_t*)entropyCodingResultsWrapperPtr->object_ptr;
+        picture_control_set_ptr = (PictureControlSet_t*)entropyCodingResultsPtr->pictureControlSetWrapperPtr->object_ptr;
+        sequence_control_set_ptr = (SequenceControlSet_t*)picture_control_set_ptr->sequence_control_set_wrapper_ptr->object_ptr;
         encode_context_ptr = (EncodeContext_t*)sequence_control_set_ptr->encode_context_ptr;
 
         //****************************************************
@@ -103,22 +137,26 @@ void* PacketizationKernel(void *input_ptr)
         //TODO: The output buffer should be big enough to avoid a deadlock here. Add an assert that make the warning
         // Get  Output Bitstream buffer
         output_stream_wrapper_ptr = picture_control_set_ptr->parent_pcs_ptr->output_stream_wrapper_ptr;
-        output_stream_ptr = (EbBufferHeaderType*)output_stream_wrapper_ptr->objectPtr;
+        output_stream_ptr = (EbBufferHeaderType*)output_stream_wrapper_ptr->object_ptr;
         output_stream_ptr->flags = 0;
         output_stream_ptr->flags |= (encode_context_ptr->terminating_sequence_flag_received == EB_TRUE && picture_control_set_ptr->parent_pcs_ptr->decode_order == encode_context_ptr->terminating_picture_number) ? EB_BUFFERFLAG_EOS : 0;
         output_stream_ptr->n_filled_len = 0;
         output_stream_ptr->pts = picture_control_set_ptr->parent_pcs_ptr->input_ptr->pts;
+#if NEW_PRED_STRUCT
+        output_stream_ptr->dts = picture_control_set_ptr->parent_pcs_ptr->decode_order - (uint64_t)(1 << picture_control_set_ptr->parent_pcs_ptr->hierarchical_levels) + 1;
+#else
         output_stream_ptr->dts = picture_control_set_ptr->parent_pcs_ptr->decode_order - (uint64_t)(1 << sequence_control_set_ptr->static_config.hierarchical_levels) + 1;
+#endif     
         output_stream_ptr->pic_type = picture_control_set_ptr->parent_pcs_ptr->is_used_as_reference_flag ?
-            picture_control_set_ptr->parent_pcs_ptr->idr_flag ? EB_IDR_PICTURE :
-            picture_control_set_ptr->slice_type : EB_NON_REF_PICTURE;
+            picture_control_set_ptr->parent_pcs_ptr->idr_flag ? EB_AV1_KEY_PICTURE :
+            picture_control_set_ptr->slice_type : EB_AV1_NON_REF_PICTURE;
         output_stream_ptr->p_app_private = picture_control_set_ptr->parent_pcs_ptr->input_ptr->p_app_private;
 
         // Get Empty Rate Control Input Tasks
-        EbGetEmptyObject(
-            context_ptr->rateControlTasksOutputFifoPtr,
+        eb_get_empty_object(
+            context_ptr->rate_control_tasks_output_fifo_ptr,
             &rateControlTasksWrapperPtr);
-        rateControlTasksPtr = (RateControlTasks_t*)rateControlTasksWrapperPtr->objectPtr;
+        rateControlTasksPtr = (RateControlTasks_t*)rateControlTasksWrapperPtr->object_ptr;
         rateControlTasksPtr->pictureControlSetWrapperPtr = picture_control_set_ptr->picture_parent_control_set_wrapper_ptr;
         rateControlTasksPtr->taskType = RC_PACKETIZATION_FEEDBACK_RESULT;
 
@@ -127,11 +165,6 @@ void* PacketizationKernel(void *input_ptr)
         ResetBitstream(
             picture_control_set_ptr->bitstreamPtr->outputBitstreamPtr);
 
-
-        if (picture_control_set_ptr->parent_pcs_ptr->showFrame && picture_control_set_ptr->parent_pcs_ptr->temporal_layer_index == 0) {
-            EncodeTDAv1(
-                picture_control_set_ptr->bitstreamPtr);
-        }
         // Code the SPS
         if (picture_control_set_ptr->parent_pcs_ptr->av1FrameType == KEY_FRAME) {
             EncodeSPSAv1(
@@ -171,6 +204,11 @@ void* PacketizationKernel(void *input_ptr)
                 encode_context_ptr);
 
             output_stream_ptr->flags |= EB_BUFFERFLAG_SHOW_EXT;
+
+#if TILES
+            if (picture_control_set_ptr->parent_pcs_ptr->av1_cm->tile_cols * picture_control_set_ptr->parent_pcs_ptr->av1_cm->tile_rows > 1)
+                output_stream_ptr->flags |= EB_BUFFERFLAG_TG;
+#endif
         }
 
         // Send the number of bytes per frame to RC
@@ -209,19 +247,19 @@ void* PacketizationKernel(void *input_ptr)
 
         if (sequence_control_set_ptr->static_config.speed_control_flag) {
             // update speed control variables
-            EbBlockOnMutex(encode_context_ptr->sc_buffer_mutex);
+            eb_block_on_mutex(encode_context_ptr->sc_buffer_mutex);
             encode_context_ptr->sc_frame_out++;
-            EbReleaseMutex(encode_context_ptr->sc_buffer_mutex);
+            eb_release_mutex(encode_context_ptr->sc_buffer_mutex);
         }
 
         // Post Rate Control Taks
-        EbPostFullObject(rateControlTasksWrapperPtr);
+        eb_post_full_object(rateControlTasksWrapperPtr);
 
         //Release the Parent PCS then the Child PCS
-        EbReleaseObject(entropyCodingResultsPtr->pictureControlSetWrapperPtr);//Child
+        eb_release_object(entropyCodingResultsPtr->pictureControlSetWrapperPtr);//Child
 
         // Release the Entropy Coding Result
-        EbReleaseObject(entropyCodingResultsWrapperPtr);
+        eb_release_object(entropyCodingResultsWrapperPtr);
 
 
         //****************************************************
@@ -231,9 +269,28 @@ void* PacketizationKernel(void *input_ptr)
         queueEntryPtr = encode_context_ptr->packetization_reorder_queue[encode_context_ptr->packetization_reorder_queue_head_index];
 
         while (queueEntryPtr->output_stream_wrapper_ptr != EB_NULL) {
-
+#if TILES
+            EbBool has_tiles = (EbBool)(sequence_control_set_ptr->static_config.tile_columns || sequence_control_set_ptr->static_config.tile_rows);
+#else
+            EbBool has_tiles = EB_FALSE;
+#endif
             output_stream_wrapper_ptr = queueEntryPtr->output_stream_wrapper_ptr;
-            output_stream_ptr = (EbBufferHeaderType*)output_stream_wrapper_ptr->objectPtr;
+            output_stream_ptr = (EbBufferHeaderType*)output_stream_wrapper_ptr->object_ptr;
+
+            if (queueEntryPtr->hasShowExisting) {
+                write_td(output_stream_ptr, EB_TRUE, has_tiles);
+                output_stream_ptr->n_filled_len += TD_SIZE;
+            }
+
+            if (encode_context_ptr->td_needed == EB_TRUE){
+                output_stream_ptr->flags |= (uint32_t)EB_BUFFERFLAG_HAS_TD;
+                write_td(output_stream_ptr, EB_FALSE, has_tiles);
+                encode_context_ptr->td_needed = EB_FALSE;
+                output_stream_ptr->n_filled_len += TD_SIZE;
+            }
+
+            if (queueEntryPtr->hasShowExisting || queueEntryPtr->showFrame)
+                encode_context_ptr->td_needed = EB_TRUE;
 
 #if DETAILED_FRAME_OUTPUT
             {
@@ -331,7 +388,23 @@ void* PacketizationKernel(void *input_ptr)
                 }
             }
 #endif
-
+#if ADP_STATS_PER_LAYER
+            if (queueEntryPtr->picture_number == sequence_control_set_ptr->static_config.frames_to_be_encoded - 1) {         
+                uint8_t layerIndex;
+                SVT_LOG("\nsq_search_count\tsq_non4_search_count\tmdc_count\tpred_count\tpred1_nfl_count");
+                for (layerIndex = 0; layerIndex < 5; layerIndex++) {
+                    SVT_LOG("\n/***************************Layer %d Stats ********************************/\n", layerIndex);
+                    if (sequence_control_set_ptr->total_count[layerIndex]) {
+                        SVT_LOG("%d\t", ((sequence_control_set_ptr->sq_search_count[layerIndex] * 100) / sequence_control_set_ptr->total_count[layerIndex]));
+                        SVT_LOG("%d\t", ((sequence_control_set_ptr->sq_non4_search_count[layerIndex] * 100) / sequence_control_set_ptr->total_count[layerIndex]));
+                        SVT_LOG("%d\t", ((sequence_control_set_ptr->mdc_count[layerIndex] * 100) / sequence_control_set_ptr->total_count[layerIndex]));
+                        SVT_LOG("%d\t", ((sequence_control_set_ptr->pred_count[layerIndex] * 100) / sequence_control_set_ptr->total_count[layerIndex]));
+                        SVT_LOG("%d\t", ((sequence_control_set_ptr->pred1_nfl_count[layerIndex] * 100) / sequence_control_set_ptr->total_count[layerIndex]));
+                    }
+                }
+                SVT_LOG("\n");
+            }
+#endif
             // Calculate frame latency in milliseconds
             double latency = 0.0;
             uint64_t finishTimeSeconds = 0;
@@ -347,7 +420,7 @@ void* PacketizationKernel(void *input_ptr)
 
             output_stream_ptr->n_tick_count = (uint32_t)latency;
             output_stream_ptr->p_app_private = queueEntryPtr->outMetaData;
-            EbPostFullObject(output_stream_wrapper_ptr);
+            eb_post_full_object(output_stream_wrapper_ptr);
             queueEntryPtr->outMetaData = (EbLinkedListNode *)EB_NULL;
 
             // Reset the Reorder Queue Entry

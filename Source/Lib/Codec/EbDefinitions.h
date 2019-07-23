@@ -20,7 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
-#include "EbApi.h"
+#include "EbSvtAv1Enc.h"
 #ifdef _WIN32
 #define inline __inline
 #elif __GNUC__
@@ -34,123 +34,138 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
      //Mode definition : Only one mode should be ON at a time
-#define MM                                    0
-#define NEW_M0                                0
-#define NEW_M1                              0
-#define NEWW_M2                                0
-#define MR_MODE                                0
-#define SHUT_FILTERING                      0 // CDEF RESTORATION DLF
+
+#define MR_MODE                                         0
+#define SHUT_FILTERING                                  0 // CDEF RESTORATION DLF
     ////
-#define MEM_RED                                1
-#define MEM_RED2                            1
-#define MEM_RED3                            1
-#define MEM_RED4                            0 //  Reduce mem allocation when DISABLE_128X128_SB is ON
+#define MEM_RED4                                        1 //  Reduce mem allocation when DISABLE_128X128_SB is ON
+#define FILT_PROC                                       1    // New Filtering processes.
+#define CDEF_M                                          1 // multi-threaded cdef
+#define REST_M                                          1 // multi-threaded restoration
+#define REST_NEED_B                                     1 // use boundary update in restoration
+#define NEW_PRED_STRUCT                                 1 // Ability to run 5-layer prediction structure. By Default 5L is used
+#define TILES                                           1
 
-#define INTRA_CORE_OPT                        1
-#define INTRA_LOSSY_OPT                        1
-
-#define ENCODER_MODE_CLEANUP                1                                          
-#define IVF_FRAME_HEADER_IN_LIB                     0
-
-#define ENABLE_INTRA_4x4                            1 //
-#define DISABLE_NSQ                                 1 //
-#define DISABLE_128X128_SB                          0
-#define ENABLE_INTER_4x4                            0 // optional
-
-#define DISABLE_4xN_Nx4                               1 //
-#define DISABLE_128x128                                  0 //
-#define VCI_CANDIDATE_II                              1
+#define INTRA_CORE_OPT                                  0
+#define ENABLE_INTRA_4x4                                1 //
+#define DISABLE_NSQ                                     1 //
+#define DISABLE_128X128_SB                              0
+#define ENABLE_INTER_4x4                                0 // optional
+#define DISABLE_4xN_Nx4                                 1 //
+#define DISABLE_128x128                                 0
+#define VCI_CANDIDATE_II                                1
 
 #if VCI_CANDIDATE_II
-#define INTRA_ASM                                     1
-#define CBF_ZERO_OFF                                  1 // Remove CBF zero feature due to VQ problems
-#define TX_TYPE_FIX                                   1 // Fix the Tx Type search for Inter blocks
-#define INC_NFL                                       1 // Set NFL to 4 for all sizes and temporal layers
-#define REMOVE_INTRA_CONST                            1 // Remove the constraints for INTRA injection
+#define INTRA_ASM                                       1
+#define CBF_ZERO_OFF                                    1 // Remove CBF zero feature due to VQ problems
+#define TX_TYPE_FIX                                     1 // Fix the Tx Type search for Inter blocks
+#define INC_NFL                                         1 // Set NFL to 4 for all sizes and temporal layers
+#define REMOVE_INTRA_CONST                              1 // Remove the constraints for INTRA injection
 
 // ADOPTED HEVC-M0 FEATURES (Active in M0 and M1)
-#define M0_ME_QUARTER_PEL_SEARCH                      1 // F1
-#define SHUT_CBF_FL_SKIP                              1 // F2 Lossless
-#define V2_HME_ME_SR                                  1 // F3
-#define ME_64x64                                      1 // F4
-#define V2_QP_SCALING                                 1 // F5 to keep for vmaff only
-#define NEW_QP_SCALING                                1 // F6
-#define M0_SSD_HALF_QUARTER_PEL_BIPRED_SEARCH         1 // F7
-#define M0_64x64_32x32_HALF_QUARTER_PEL               1 // F8
-
-#define IMPROVED_UNIPRED_INJECTION                    1 // F11
-#define IMPROVED_BIPRED_INJECTION                     1 // F10
-
-
-#define M0_ME_SEARCH_BASE                             1 // F13
-#define INC_NFL12                                     1 // F14
-
-#define AV1_UPGRADE                                   1 // Upgrade to V1.0.0
-
-#define INTRAD_ASM                                    1 //asm for intra directionnal modes - Z1
-#define SUPPORT_10BIT                                 1 // Support for 10 Bit encodings
-#define NEW_QPS                                       1 // New QPS based on AOM 1Pass
-#define ME_HME_OQ                                     1 // Ported ME HME from EB32 OQ
-
+#define M0_ME_QUARTER_PEL_SEARCH                        1 // F1
+#define SHUT_CBF_FL_SKIP                                1 // F2 Lossless
+#define V2_HME_ME_SR                                    1 // F3
+#define ME_64x64                                        1 // F4
+#define M0_SSD_HALF_QUARTER_PEL_BIPRED_SEARCH           1 // F7
+#define M0_64x64_32x32_HALF_QUARTER_PEL                 1 // F8
+#define IMPROVED_UNIPRED_INJECTION                      1 // F11
+#define IMPROVED_BIPRED_INJECTION                       1 // F10
+#define M0_ME_SEARCH_BASE                               1 // F13
+#define INC_NFL12                                       1 // F14
+#define AV1_UPGRADE                                     1 // Upgrade to V1.0.0
+#define INTRAD_ASM                                      1 // asm for intra directionnal modes - Z1
+#define SUPPORT_10BIT                                   1 // Support for 10 Bit encodings
+#define NEW_QPS                                         1 // New QPS based on AOM 1Pass
+#define ME_HME_OQ                                       1 // Ported ME HME from EB32 OQ
 #if SUPPORT_10BIT
-
-#define INTRA_10BIT_SUPPORT                         1
-#define QT_10BIT_SUPPORT                            1
-#define CDEF_10BIT_FIX                              1
-#define RS_10BIT_FIX                                1
-#define MD_10BIT_FIX                                1
-#define LF_10BIT_FIX                                1
-#define INTERPOL_FILTER_SEARCH_10BIT_SUPPORT        1
+#define INTRA_10BIT_SUPPORT                             1
+#define QT_10BIT_SUPPORT                                1
+#define CDEF_10BIT_FIX                                  1
+#define RS_10BIT_FIX                                    1
+#define MD_10BIT_FIX                                    1
+#define LF_10BIT_FIX                                    1
+#define INTERPOL_FILTER_SEARCH_10BIT_SUPPORT            1
 #endif
+#define BUG_FIX                                         1 // BUG fix related to transform type
+#define LIMIT_INTRA_INJ                                 1
+#define TURN_OFF_INTERPOL_FILTER_SEARCH                 1
+#define TURN_OFF_TX_TYPE_SEARCH                         1
+#define TURN_OFF_NFL8                                   1 // Uses 8->4 NFL
 
-#define BUG_FIX                                     1 // BUG fix related to transform type
-#define LIMIT_INTRA_INJ                                1
-#define TURN_OFF_INTERPOL_FILTER_SEARCH                1
-#define TURN_OFF_TX_TYPE_SEARCH                        1
-#define TURN_OFF_NFL8                                1 // Uses 8->4 NFL
-
-
-#define TURN_OFF_CFL                               0 // turning CFL off is broken
+#define TURN_OFF_CFL                                    0 // turning CFL off is broken
 #if M0_SSD_HALF_QUARTER_PEL_BIPRED_SEARCH
-#define M0_SAD_HALF_QUARTER_PEL_BIPRED_SEARCH       1
+#define M0_SAD_HALF_QUARTER_PEL_BIPRED_SEARCH           1
 #endif
 #endif
 
 // NEW MACOS
-#define INTRINSIC_OPT_2                             1 // Intrinsics opt work phase 2
-#define DIS_EDGE_FIL                                1 // disable intra edge filter - to be removed after fixing the neigbor array for intra 4xN and Nx4
-#define DISABLE_INTRA_PRED_INTRINSIC                0 // To be used to switch between intrinsic and C code for intra-pred
-#define USE_INLOOP_ME_FULL_SAD                      0 // To switch between full SAD and subsampled-SAD for in-loop-me subpel.
-#define NO_SUBPEL_FOR_128X128                       1 // Intrinsic is not available for 128x128 Subpel
+#define INTRINSIC_OPT_2                                 1 // Intrinsics opt work phase 2
+#define DIS_EDGE_FIL                                    0 // disable intra edge filter - to be removed after fixing the neigbor array for intra 4xN and Nx4
+#define DISABLE_INTRA_PRED_INTRINSIC                    0 // To be used to switch between intrinsic and C code for intra-pred
+#define USE_INLOOP_ME_FULL_SAD                          0 // To switch between full SAD and subsampled-SAD for in-loop-me subpel.
+#define NO_SUBPEL_FOR_128X128                           1 // Intrinsic is not available for 128x128 Subpel
 //FOR DEBUGGING - Do not remove
-#define NO_ENCDEC                                   0 // bypass encDec to test cmpliance of MD. complained achieved when skip_flag is OFF. Port sample code from VCI-SW_AV1_Candidate1 branch
+#define NO_ENCDEC                                       0 // bypass encDec to test cmpliance of MD. complained achieved when skip_flag is OFF. Port sample code from VCI-SW_AV1_Candidate1 branch
 
-#define    FIX_DEBUG_CRASH                             1
-#define FIX_47                                      1 // interdepth decision to be tedted block aware
-#define HME_ENHANCED_CENTER_SEARCH                  1
-#define TUNE_CHROMA_OFFSET                          1
-#define FAST_TX_SEARCH                                1
-#define MACRO_BLOCK_CLEANUP                            1
-#define DISABLE_NSQ_FOR_NON_REF                     1
-#define FIX_INTER_DEPTH                             1  // Fix interdepth depth cost when MDC cuts depths
+#define FIX_DEBUG_CRASH                                 1
+#define FIX_47                                          1 // interdepth decision to be tedted block aware
+#define HME_ENHANCED_CENTER_SEARCH                      1
+#define TUNE_CHROMA_OFFSET                              1
+#define FAST_TX_SEARCH                                  1
+#define MACRO_BLOCK_CLEANUP                             1
+#define DISABLE_NSQ_FOR_NON_REF                         1
+#define FIX_INTER_DEPTH                                 1  // Fix interdepth depth cost when MDC cuts depths
+#define DISABLE_IN_LOOP_ME                              1
+#define EXTRA_ALLOCATION                                1
+#define SCS_CP_FIX                                      0 
+#define ENCDEC_TX_SEARCH                                1
+#define DISABLE_ANGULAR_MODE                            0
+#define FIX_ME_SR_10BIT                                 1
+#define TEST5_DISABLE_NSQ_ME                            0
+#define DISABLE_ANGULAR_MODE_FOR_NON_REF                0
+#define INJECT_ONLY_SQ                                  1
+#define OPT_MEMCPY                                      1
+#define DISABLE_DR_REFIN                                0
+#define CDEF_REF_ONLY                                   0 //CDEF for ref frame only
+#define REST_REF_ONLY                                   0 //REST for ref frame only
+#define REDUCE_COPY_CDEF                                1
 
-#define DISABLE_IN_LOOP_ME                          1
-#define EXTRA_ALLOCATION                            1
-#define USE_FAST_INTERP_SEARCH                      0
-#define SCS_CP_FIX                                  0 
-#define ENCDEC_TX_SEARCH                            1
-#define DISABLE_ANGULAR_MODE                        0
-#define FIX_ME_SR_10BIT                             1
-#define TEST5_DISABLE_NSQ_ME                        0
-#define DISABLE_ANGULAR_MODE_FOR_NON_REF            0
-#define INJECT_ONLY_SQ                                1
-#define OPT_MEMCPY                                    1
-#define DISABLE_DR_REFIN                            0
-#define CDEF_REF_ONLY                               0 //CDEF for ref frame only
-#define REST_REF_ONLY                               0 //REST for ref frame only
-#define REDUCE_COPY_CDEF                            1
+#define FAST_CDEF                                       1
+#define FAST_SG                                         1
+#define FAST_WN                                         1
+#define CHROMA_BLIND                                    1 // Added the ability to switch between three chroma modes: 1. chroma @ MD, 2. chroma blind @ MD + CFL @ EP. 3. chroma blind @ MD + no CFL @ EP
+#define CONTENT_BASED_QPS                               1 // Adaptive QP Scaling (active for I only)
+#define ADAPTIVE_DEPTH_PARTITIONING                     1 // Added the ability to switch @ SB basis between: (1) all square up to 64x64,  (2) mdc up to 64x64, (3) mdc up to 64x64 only pred, (4) mdc up to 64x64 only pred + 1 NFL
+#if ADAPTIVE_DEPTH_PARTITIONING
+#define ADP_V1                                          0      
+#define ADP_STATS_PER_LAYER                             0
+#define OPEN_LOOP_EARLY_PARTITION                       1
+#if OPEN_LOOP_EARLY_PARTITION
+#define REST_FAST_RATE_EST                              1
+#define MDC_FIX_0                                       1
+#define MDC_FIX_1                                       1
+#endif
+#endif
 
+#define REMOVED_DUPLICATE_INTER                         1
+#define REMOVED_DUPLICATE_INTER_L1                      1
+#define REMOVED_DUPLICATE_INTER_BIPRED                  1
+
+#define USED_NFL_FEATURE_BASED                          1
+#if USED_NFL_FEATURE_BASED
+#define NFL_TX_TH                                      12 // To be tuned
+#define NFL_IT_TH                                       2 // To be tuned
+#endif
+
+#define ENABLE_PAETH                                    1
+#define TWO_FAST_LOOP                                   1
+#define ENABLE_EOB_ZERO_CHECK                           1
+#define DISABLE_128_SB_FOR_SUB_720                      1
+
+#define IMPROVE_CHROMA_MODE                  1
 
 /********************************************************/
 /****************** Pre-defined Values ******************/
@@ -166,10 +181,12 @@ extern "C" {
 #if DISABLE_128X128_SB
 #define BLOCK_MAX_COUNT                           1101
 #else
-#define BLOCK_MAX_COUNT                           4421  //SB128_TODO: reduce alloction for 64x64
+#define BLOCK_MAX_COUNT_SB_128                    4421  // TODO: reduce alloction for 64x64
+#define BLOCK_MAX_COUNT_SB_64                     1101  // TODO: reduce alloction for 64x64
 #endif
 #define MAX_TXB_COUNT                             4 // Maximum number of transform blocks.
 #define MAX_NFL                                   12
+#define MAX_LAD                                   120 // max lookahead-distance 2x60fps
 #define ROUND_UV(x) (((x)>>3)<<3)
 #define AV1_PROB_COST_SHIFT 9
 #define AOMINNERBORDERINPIXELS 160
@@ -182,77 +199,13 @@ extern "C" {
 #define CFL_BUF_SQUARE (CFL_BUF_LINE * CFL_BUF_LINE)
 /***********************************    AV1_OBU     ********************************/
 #define INVALID_NEIGHBOR_DATA 0xFFu
-#define AOM_CONFIG_H_
-#define ARCH_ARM 0
-#define ARCH_MIPS 0
-#define ARCH_PPC 0
-#define ARCH_X86 0
-#define ARCH_X86_64 1
-#define CONFIG_ACCOUNTING 0
-#define CONFIG_ANALYZER 0
-#define CONFIG_AV1 1
-#define CONFIG_AV1_DECODER 1
-#define CONFIG_AV1_ENCODER 1
-#define CONFIG_BIG_ENDIAN 0
 #define CONFIG_BITSTREAM_DEBUG 0
 #define CONFIG_BUFFER_MODEL 1
 #define CONFIG_COEFFICIENT_RANGE_CHECKING 0
-#if AV1_UPGRADE
-#define CONFIG_COLLECT_INTER_MODE_RD_STATS 1
-#else
-#define CONFIG_COLLECT_INTER_MODE_RD_STATS 0
-#endif
-#define CONFIG_COLLECT_RD_STATS 0
-#define CONFIG_DEBUG 0
-#define CONFIG_DECODE_PERF_TESTS 0
-#define CONFIG_DIST_8X8 1
-#define CONFIG_ENCODE_PERF_TESTS 0
 #define CONFIG_ENTROPY_STATS 0
-#define CONFIG_FILEOPTIONS 1
 #define CONFIG_FP_MB_STATS 0
-#define CONFIG_GCC 0
-#define CONFIG_GCOV 0
-#define CONFIG_GPROF 0
-#define CONFIG_INSPECTION 0
 #define CONFIG_INTERNAL_STATS 0
-#define CONFIG_INTER_STATS_ONLY 0
-#define CONFIG_LIBYUV 1
-#define CONFIG_LOWBITDEPTH 0
-#define CONFIG_MISMATCH_DEBUG 0
-#define CONFIG_MSVS 1
-#define CONFIG_MULTITHREAD 1
-#define CONFIG_OS_SUPPORT 1
-#define CONFIG_PIC 0
 #define CONFIG_RD_DEBUG 0
-#define CONFIG_RUNTIME_CPU_DETECT 1
-#define CONFIG_SHARED 0
-#define CONFIG_SIZE_LIMIT 0
-#define CONFIG_SPATIAL_RESAMPLING 1
-#define CONFIG_STATIC 1
-#define CONFIG_UNIT_TESTS 1
-#define CONFIG_WEBM_IO 1
-#define DECODE_HEIGHT_LIMIT 0
-#define DECODE_WIDTH_LIMIT 0
-#define HAVE_AVX 1
-#define HAVE_AVX2 1
-#define HAVE_DSPR2 0
-#define HAVE_FEXCEPT 0
-#define HAVE_MIPS32 0
-#define HAVE_MIPS64 0
-#define HAVE_MMX 1
-#define HAVE_MSA 0
-#define HAVE_NEON 0
-#define HAVE_NEON_ASM 0
-#define HAVE_PTHREAD_H 0
-#define HAVE_SSE 1
-#define HAVE_SSE2 1
-#define HAVE_SSE3 1
-#define HAVE_SSE4_1 1
-#define HAVE_SSE4_2 1
-#define HAVE_SSSE3 1
-#define HAVE_UNISTD_H 0
-#define HAVE_VSX 0
-#define HAVE_WXWIDGETS 0
 
 // Max superblock size
 #define MAX_SB_SIZE_LOG2 7
@@ -350,10 +303,16 @@ one more than the minimum. */
 
 // AV1 Loop Filter
 #define AV1_LF                                    1  // AV1 Loop Filter
-#if AV1_LF
-#define AV1_LF_FULL_IMAGE_SELECTION               1  // 0 uses LPF_PICK_FROM_Q, 1 uses LPF_PICK_FROM_FULL_IMAGE
+#if AV1_LF 
 #define LF_SHARPNESS 0
 #endif
+
+#define FILTER_BITS 7
+#define SUBPEL_BITS 4
+#define SUBPEL_MASK ((1 << SUBPEL_BITS) - 1)
+#define SUBPEL_SHIFTS (1 << SUBPEL_BITS)
+#define SUBPEL_TAPS 8
+typedef int16_t InterpKernel[SUBPEL_TAPS];
 
 /***************************************************/
 /****************** Helper Macros ******************/
@@ -446,8 +405,7 @@ extern void RunEmms();
 #undef MEM_VALUE_T_SZ_BITS
 #define MEM_VALUE_T_SZ_BITS (sizeof(MEM_VALUE_T) << 3)
 
-
-    static __inline void mem_put_le16(void *vmem, MEM_VALUE_T val) {
+static __inline void mem_put_le16(void *vmem, MEM_VALUE_T val) {
     MAU_T *mem = (MAU_T *)vmem;
 
     mem[0] = (MAU_T)((val >> 0) & 0xff);
@@ -544,9 +502,28 @@ typedef struct InterpFilterParams {
     InterpFilter interp_filter;
 } InterpFilterParams;
 
+typedef enum TX_SEARCH_LEVEL {
+    TX_SEARCH_OFF,
+    TX_SEARCH_ENC_DEC,
+    TX_SEARCH_INTER_DEPTH,
+    TX_SEARCH_FULL_LOOP
+} TX_SEARCH_LEVEL;
 
-
-
+typedef enum INTERPOLATION_SEARCH_LEVEL {
+    IT_SEARCH_OFF,
+    IT_SEARCH_INTER_DEPTH,
+    IT_SEARCH_FULL_LOOP,
+    IT_SEARCH_FAST_LOOP,
+} INTERPOLATION_SEARCH_LEVEL;
+typedef enum NSQ_SEARCH_LEVEL {
+    NSQ_SEARCH_OFF,
+    NSQ_SEARCH_BASE_ON_SQ_TYPE,
+    NSQ_SEARCH_BASE_ON_SQ_COEFF,
+    NSQ_INTER_SEARCH_BASE_ON_SQ_MVMODE,
+    NSQ_INTER_SEARCH_BASE_ON_SQ_INTRAMODE,
+    NSQ_SEARCH_FULL
+} NSQ_SEARCH_LEVEL;
+#define MAX_PARENT_SQ     6
 typedef enum COMPOUND_DIST_WEIGHT_MODE {
     DIST,
 } COMPOUND_DIST_WEIGHT_MODE;
@@ -594,7 +571,7 @@ typedef enum ATTRIBUTE_PACKED {
     BlockSizeS = BLOCK_4X16,
     BLOCK_INVALID = 255,
     BLOCK_LARGEST = (BlockSizeS - 1)
-} BlockSize;
+} block_size;
 
 typedef enum ATTRIBUTE_PACKED {
     PARTITION_NONE,
@@ -686,6 +663,10 @@ static const int32_t tx_size_wide[TX_SIZES_ALL] = {
 static const int32_t tx_size_high[TX_SIZES_ALL] = {
     4, 8, 16, 32, 64, 8, 4, 16, 8, 32, 16, 64, 32, 16, 4, 32, 8, 64, 16,
 };
+
+ // tran_low_t  is the datatype used for final transform coefficients.
+typedef int32_t tran_low_t;
+typedef uint8_t qm_val_t;
 
 typedef enum TX_CLASS {
     TX_CLASS_2D = 0,
@@ -1288,7 +1269,7 @@ typedef struct PartitionContext {
     PARTITION_CONTEXT left;
 }PartitionContext;
 // Generates 5 bit field in which each bit set to 1 represents
-// a blocksize partition  11111 means we split 128x128, 64x64, 32x32, 16x16
+// a block_size partition  11111 means we split 128x128, 64x64, 32x32, 16x16
 // and 8x8.  10000 means we just split the 128x128 to 64x64
 /* clang-format off */
 static const struct {
@@ -1878,18 +1859,18 @@ typedef enum EB_BITFIELD_MASKS {
 #define INIT_RC_OPT_G1                    1
 #define INIT_RC_OPT_G2                    1
 #define HIST_OPT                          2 // 1 is intrinsic, 2 is C
-
+#if !CHROMA_BLIND
 #define INTER_DEPTH_DECISION_CHROMA_BLIND 1
-
+#endif
 #define ENABLE_8x8                        0
 
 #define    Log2f                              Log2f_SSE2
 
-#define INPUT_SIZE_576p_TH                0x90000        // 0.58 Million
-#define INPUT_SIZE_1080i_TH                0xB71B0        // 0.75 Million
-#define INPUT_SIZE_1080p_TH                0x1AB3F0    // 1.75 Million
-#define INPUT_SIZE_4K_TH                0x29F630    // 2.75 Million
-#define INPUT_SIZE_8K_TH                0xA7D8C0    // 11 Million
+#define INPUT_SIZE_576p_TH                  0x90000        // 0.58 Million
+#define INPUT_SIZE_1080i_TH                 0xB71B0        // 0.75 Million
+#define INPUT_SIZE_1080p_TH                 0x1AB3F0    // 1.75 Million
+#define INPUT_SIZE_4K_TH                    0x29F630    // 2.75 Million
+#define INPUT_SIZE_8K_TH                    0xA7D8C0    // 11 Million
 
 /** Redefine ASSERT() to avoid warnings
 */
@@ -1916,7 +1897,8 @@ typedef enum EB_BITFIELD_MASKS {
 #define INPUT_SIZE_576p_RANGE_OR_LOWER     0
 #define INPUT_SIZE_1080i_RANGE             1
 #define INPUT_SIZE_1080p_RANGE             2
-#define INPUT_SIZE_4K_RANGE                 3
+#define INPUT_SIZE_4K_RANGE                3
+#define INPUT_SIZE_COUNT                   INPUT_SIZE_4K_RANGE + 1
 
 
 /** The EB_ENCODERMODE type is used to describe the encoder speed/quality trade-off.
@@ -2050,6 +2032,7 @@ typedef enum EB_INTRA_REFRESH_TYPE {
 #define ENC_M4          4
 #define ENC_M5          5
 #define ENC_M6          6
+#define ENC_M7          7
 
 #define MAX_SUPPORTED_MODES 8
 
@@ -2110,8 +2093,8 @@ typedef enum EB_TUSIZE {
 
 static const uint8_t QP_OFFSET_WEIGHT[3][4] = { // [Slice Type][QP Offset Weight Level]
     { 9, 8, 7, 6 },
-{ 9, 8, 7, 6 },
-{ 10, 9, 8, 7 }
+    { 9, 8, 7, 6 },
+    { 10, 9, 8, 7 }
 };
 
 /** Assembly Types
@@ -2133,7 +2116,7 @@ semaphores, mutexs, etc.
 typedef void * EbHandle;
 
 /** The EB_CTOR type is used to define the eBrisk object constructors.
-objectPtr is a EbPtr to the object being constructed.
+object_ptr is a EbPtr to the object being constructed.
 object_init_data_ptr is a EbPtr to a data structure used to initialize the object.
 */
 typedef EbErrorType(*EB_CTOR)(
@@ -2141,10 +2124,10 @@ typedef EbErrorType(*EB_CTOR)(
     EbPtr object_init_data_ptr);
 
 /** The EB_DTOR type is used to define the eBrisk object destructors.
-objectPtr is a EbPtr to the object being constructed.
+object_ptr is a EbPtr to the object being constructed.
 */
 typedef void(*EB_DTOR)(
-    EbPtr objectPtr);
+    EbPtr object_ptr);
 
 #define INVALID_MV            0xFFFFFFFF
 #define BLKSIZE 64
@@ -2154,10 +2137,6 @@ typedef void(*EB_DTOR)(
 ***************************************/
 // Reserved types for lib's internal use. Must be less than EB_EXT_TYPE_BASE
 #define       EB_TYPE_PIC_TIMING_SEI         0
-#define       EB_TYPE_BUFFERING_PERIOD_SEI   1
-#define       EB_TYPE_RECOVERY_POINT_SEI     2
-#define       EB_TYPE_UNREG_USER_DATA_SEI    3
-#define       EB_TYPE_REG_USER_DATA_SEI      4
 #define       EB_TYPE_PIC_STRUCT             5             // It is a requirement (for the application) that if pictureStruct is present for 1 picture it shall be present for every picture
 #define       EB_TYPE_INPUT_PICTURE_DEF      6
 
@@ -2221,30 +2200,30 @@ extern    EbMemoryMapEntry        *appMemoryMap;            // App Memory table
 extern    uint32_t                  *appMemoryMapIndex;       // App Memory index
 extern    uint64_t                  *totalAppMemory;          // App Memory malloc'd
 
-extern    EbMemoryMapEntry        *memoryMap;               // library Memory table
-extern    uint32_t                  *memoryMapIndex;          // library memory index
-extern    uint64_t                  *totalLibMemory;          // library Memory malloc'd
+extern    EbMemoryMapEntry        *memory_map;               // library Memory table
+extern    uint32_t                  *memory_map_index;          // library memory index
+extern    uint64_t                  *total_lib_memory;          // library Memory malloc'd
 
 extern    uint32_t                   libMallocCount;
-extern    uint32_t                   libThreadCount;
+extern    uint32_t                   lib_thread_count;
 extern    uint32_t                   libSemaphoreCount;
 extern    uint32_t                   libMutexCount;
 
 extern    uint32_t                   appMallocCount;
 
-#define EB_APP_MALLOC(type, pointer, nElements, pointerClass, returnType) \
-pointer = (type)malloc(nElements); \
+#define EB_APP_MALLOC(type, pointer, n_elements, pointer_class, returnType) \
+pointer = (type)malloc(n_elements); \
 if (pointer == (type)EB_NULL){ \
     return returnType; \
     } \
     else { \
-    appMemoryMap[*(appMemoryMapIndex)].ptrType = pointerClass; \
+    appMemoryMap[*(appMemoryMapIndex)].ptrType = pointer_class; \
     appMemoryMap[(*(appMemoryMapIndex))++].ptr = pointer; \
-    if (nElements % 8 == 0) { \
-        *totalAppMemory += (nElements); \
+    if (n_elements % 8 == 0) { \
+        *totalAppMemory += (n_elements); \
             } \
             else { \
-        *totalAppMemory += ((nElements) + (8 - ((nElements) % 8))); \
+        *totalAppMemory += ((n_elements) + (8 - ((n_elements) % 8))); \
     } \
 } \
 if (*(appMemoryMapIndex) >= MAX_APP_NUM_PTR) { \
@@ -2252,22 +2231,22 @@ if (*(appMemoryMapIndex) >= MAX_APP_NUM_PTR) { \
         } \
 appMallocCount++;
 
-#define EB_APP_MALLOC_NR(type, pointer, nElements, pointerClass,returnType) \
+#define EB_APP_MALLOC_NR(type, pointer, n_elements, pointer_class,returnType) \
 (void)returnType; \
-pointer = (type)malloc(nElements); \
+pointer = (type)malloc(n_elements); \
 if (pointer == (type)EB_NULL){ \
     returnType = EB_ErrorInsufficientResources; \
     printf("Malloc has failed due to insuffucient resources"); \
     return; \
     } \
     else { \
-    appMemoryMap[*(appMemoryMapIndex)].ptrType = pointerClass; \
+    appMemoryMap[*(appMemoryMapIndex)].ptrType = pointer_class; \
     appMemoryMap[(*(appMemoryMapIndex))++].ptr = pointer; \
-    if (nElements % 8 == 0) { \
-        *totalAppMemory += (nElements); \
+    if (n_elements % 8 == 0) { \
+        *totalAppMemory += (n_elements); \
             } \
             else { \
-        *totalAppMemory += ((nElements) + (8 - ((nElements) % 8))); \
+        *totalAppMemory += ((n_elements) + (8 - ((n_elements) % 8))); \
     } \
 } \
 if (*(appMemoryMapIndex) >= MAX_APP_NUM_PTR) { \
@@ -2280,135 +2259,135 @@ appMallocCount++;
 #define ALVALUE 32
 
 #ifdef _MSC_VER
-#define EB_ALLIGN_MALLOC(type, pointer, nElements, pointerClass) \
-pointer = (type) _aligned_malloc(nElements,ALVALUE); \
+#define EB_ALLIGN_MALLOC(type, pointer, n_elements, pointer_class) \
+pointer = (type) _aligned_malloc(n_elements,ALVALUE); \
 if (pointer == (type)EB_NULL) { \
     return EB_ErrorInsufficientResources; \
     } \
     else { \
-    memoryMap[*(memoryMapIndex)].ptrType = pointerClass; \
-    memoryMap[(*(memoryMapIndex))++].ptr = pointer; \
-    if (nElements % 8 == 0) { \
-        *totalLibMemory += (nElements); \
+    memory_map[*(memory_map_index)].ptrType = pointer_class; \
+    memory_map[(*(memory_map_index))++].ptr = pointer; \
+    if (n_elements % 8 == 0) { \
+        *total_lib_memory += (n_elements); \
     } \
     else { \
-        *totalLibMemory += ((nElements) + (8 - ((nElements) % 8))); \
+        *total_lib_memory += ((n_elements) + (8 - ((n_elements) % 8))); \
     } \
 } \
-if (*(memoryMapIndex) >= MAX_NUM_PTR) { \
+if (*(memory_map_index) >= MAX_NUM_PTR) { \
     return EB_ErrorInsufficientResources; \
 } \
 libMallocCount++;
 
 #else
-#define EB_ALLIGN_MALLOC(type, pointer, nElements, pointerClass) \
-if (posix_memalign((void**)(&(pointer)), ALVALUE, nElements) != 0) { \
+#define EB_ALLIGN_MALLOC(type, pointer, n_elements, pointer_class) \
+if (posix_memalign((void**)(&(pointer)), ALVALUE, n_elements) != 0) { \
     return EB_ErrorInsufficientResources; \
         } \
             else { \
     pointer = (type) pointer;  \
-    memoryMap[*(memoryMapIndex)].ptrType = pointerClass; \
-    memoryMap[(*(memoryMapIndex))++].ptr = pointer; \
-    if (nElements % 8 == 0) { \
-        *totalLibMemory += (nElements); \
+    memory_map[*(memory_map_index)].ptrType = pointer_class; \
+    memory_map[(*(memory_map_index))++].ptr = pointer; \
+    if (n_elements % 8 == 0) { \
+        *total_lib_memory += (n_elements); \
             } \
             else { \
-        *totalLibMemory += ((nElements) + (8 - ((nElements) % 8))); \
+        *total_lib_memory += ((n_elements) + (8 - ((n_elements) % 8))); \
     } \
 } \
-if (*(memoryMapIndex) >= MAX_NUM_PTR) { \
+if (*(memory_map_index) >= MAX_NUM_PTR) { \
     return EB_ErrorInsufficientResources; \
     } \
 libMallocCount++;
 #endif
 
 
-#define EB_MALLOC(type, pointer, nElements, pointerClass) \
-pointer = (type) malloc(nElements); \
+#define EB_MALLOC(type, pointer, n_elements, pointer_class) \
+pointer = (type) malloc(n_elements); \
 if (pointer == (type)EB_NULL) { \
     return EB_ErrorInsufficientResources; \
     } \
     else { \
-    memoryMap[*(memoryMapIndex)].ptrType = pointerClass; \
-    memoryMap[(*(memoryMapIndex))++].ptr = pointer; \
-    if (nElements % 8 == 0) { \
-        *totalLibMemory += (nElements); \
+    memory_map[*(memory_map_index)].ptrType = pointer_class; \
+    memory_map[(*(memory_map_index))++].ptr = pointer; \
+    if (n_elements % 8 == 0) { \
+        *total_lib_memory += (n_elements); \
     } \
     else { \
-        *totalLibMemory += ((nElements) + (8 - ((nElements) % 8))); \
+        *total_lib_memory += ((n_elements) + (8 - ((n_elements) % 8))); \
     } \
 } \
-if (*(memoryMapIndex) >= MAX_NUM_PTR) { \
+if (*(memory_map_index) >= MAX_NUM_PTR) { \
     return EB_ErrorInsufficientResources; \
 } \
 libMallocCount++;
 
-#define EB_CALLOC(type, pointer, count, size, pointerClass) \
+#define EB_CALLOC(type, pointer, count, size, pointer_class) \
 pointer = (type) calloc(count, size); \
 if (pointer == (type)EB_NULL) { \
     return EB_ErrorInsufficientResources; \
 } \
 else { \
-    memoryMap[*(memoryMapIndex)].ptrType = pointerClass; \
-    memoryMap[(*(memoryMapIndex))++].ptr = pointer; \
+    memory_map[*(memory_map_index)].ptrType = pointer_class; \
+    memory_map[(*(memory_map_index))++].ptr = pointer; \
     if (count % 8 == 0) { \
-        *totalLibMemory += (count); \
+        *total_lib_memory += (count); \
     } \
     else { \
-        *totalLibMemory += ((count) + (8 - ((count) % 8))); \
+        *total_lib_memory += ((count) + (8 - ((count) % 8))); \
     } \
 } \
-if (*(memoryMapIndex) >= MAX_NUM_PTR) { \
+if (*(memory_map_index) >= MAX_NUM_PTR) { \
     return EB_ErrorInsufficientResources; \
 } \
 libMallocCount++;
 
-#define EB_CREATESEMAPHORE(type, pointer, nElements, pointerClass, initialCount, maxCount) \
-pointer = EbCreateSemaphore(initialCount, maxCount); \
+#define EB_CREATESEMAPHORE(type, pointer, n_elements, pointer_class, initial_count, max_count) \
+pointer = eb_create_semaphore(initial_count, max_count); \
 if (pointer == (type)EB_NULL) { \
     return EB_ErrorInsufficientResources; \
 } \
 else { \
-    memoryMap[*(memoryMapIndex)].ptrType = pointerClass; \
-    memoryMap[(*(memoryMapIndex))++].ptr = pointer; \
-    if (nElements % 8 == 0) { \
-        *totalLibMemory += (nElements); \
+    memory_map[*(memory_map_index)].ptrType = pointer_class; \
+    memory_map[(*(memory_map_index))++].ptr = pointer; \
+    if (n_elements % 8 == 0) { \
+        *total_lib_memory += (n_elements); \
     } \
     else { \
-        *totalLibMemory += ((nElements) + (8 - ((nElements) % 8))); \
+        *total_lib_memory += ((n_elements) + (8 - ((n_elements) % 8))); \
     } \
 } \
-if (*(memoryMapIndex) >= MAX_NUM_PTR) { \
+if (*(memory_map_index) >= MAX_NUM_PTR) { \
     return EB_ErrorInsufficientResources; \
 } \
 libSemaphoreCount++;
 
-#define EB_CREATEMUTEX(type, pointer, nElements, pointerClass) \
-pointer = EbCreateMutex(); \
+#define EB_CREATEMUTEX(type, pointer, n_elements, pointer_class) \
+pointer = eb_create_mutex(); \
 if (pointer == (type)EB_NULL){ \
     return EB_ErrorInsufficientResources; \
 } \
 else { \
-    memoryMap[*(memoryMapIndex)].ptrType = pointerClass; \
-    memoryMap[(*(memoryMapIndex))++].ptr = pointer; \
-    if (nElements % 8 == 0) { \
-        *totalLibMemory += (nElements); \
+    memory_map[*(memory_map_index)].ptrType = pointer_class; \
+    memory_map[(*(memory_map_index))++].ptr = pointer; \
+    if (n_elements % 8 == 0) { \
+        *total_lib_memory += (n_elements); \
     } \
     else { \
-        *totalLibMemory += ((nElements) + (8 - ((nElements) % 8))); \
+        *total_lib_memory += ((n_elements) + (8 - ((n_elements) % 8))); \
     } \
 } \
-if (*(memoryMapIndex) >= MAX_NUM_PTR) { \
+if (*(memory_map_index) >= MAX_NUM_PTR) { \
     return EB_ErrorInsufficientResources; \
 } \
 libMutexCount++;
 
 #define EB_MEMORY() \
 printf("Total Number of Mallocs in Library: %d\n", libMallocCount); \
-printf("Total Number of Threads in Library: %d\n", libThreadCount); \
+printf("Total Number of Threads in Library: %d\n", lib_thread_count); \
 printf("Total Number of Semaphore in Library: %d\n", libSemaphoreCount); \
 printf("Total Number of Mutex in Library: %d\n", libMutexCount); \
-printf("Total Library Memory: %.2lf KB\n\n",*totalLibMemory/(double)1024);
+printf("Total Library Memory: %.2lf KB\n\n",*total_lib_memory/(double)1024);
 
 
 #define EB_APP_MEMORY() \
@@ -2516,7 +2495,7 @@ extern errno_t
 extern rsize_t
     strnlen_ss(const char *s, rsize_t smax);
 
-extern void DRDmemcpy(void  *dstPtr, void *srcPtr, uint32_t  cnt);
+extern void DRDmemcpy(void  *dst_ptr, void *src_ptr, uint32_t  cnt);
 #define EB_MEMCPY(dst, src, size) \
 DRDmemcpy(dst, src, size)
 
@@ -2536,9 +2515,9 @@ strcmp(target,token)
 #define EB_STRLEN(target, max_size) \
 strnlen_ss(target, max_size)
 
-#ifdef __cplusplus
-}
-#endif // __cplusplus
+//#ifdef __cplusplus
+//}
+//#endif // __cplusplus
 
 
 
@@ -2881,6 +2860,14 @@ static const uint8_t INTRA_AREA_TH_CLASS_1[MAX_HIERARCHICAL_LEVEL][MAX_TEMPORAL_
     { 50, 40, 30, 20, 10, 10 }
 };
 
+
+#if NEW_PRED_STRUCT
+#define NON_MOVING_SCORE_0     0
+#define NON_MOVING_SCORE_1    10
+#define NON_MOVING_SCORE_2    20
+#define NON_MOVING_SCORE_3    30
+#define INVALID_NON_MOVING_SCORE (uint8_t) ~0
+#endif
 // Picture split into regions for analysis (SCD, Dynamic GOP)
 #define CLASS_SUB_0_REGION_SPLIT_PER_WIDTH    1
 #define CLASS_SUB_0_REGION_SPLIT_PER_HEIGHT    1
@@ -2973,11 +2960,17 @@ static const uint8_t INTRA_AREA_TH_CLASS_1[MAX_HIERARCHICAL_LEVEL][MAX_TEMPORAL_
 #define N4_SHAPE      2
 #define ONLY_DC_SHAPE 3
 
-
+#if CHROMA_BLIND 
+#define EB_CHROMA_LEVEL uint8_t
+#define CHROMA_MODE_0  0 // Chroma @ MD
+#define CHROMA_MODE_1  1 // Chroma blind @ MD + CFL @ EP
+#define CHROMA_MODE_2  2 // Chroma blind @ MD + no CFL @ EP
+#else
 typedef enum EbChromaMode {
     CHROMA_MODE_FULL = 1,
     CHROMA_MODE_BEST = 2 //Chroma for best full loop candidate.
 } EbChromaMode;
+#endif
 
 typedef enum EbSbComplexityStatus {
     SB_COMPLEXITY_STATUS_0 = 0,
@@ -3003,14 +2996,24 @@ typedef enum EbCu8x8Mode {
 
 typedef enum EbPictureDepthMode {
 
-    PICT_SB_SWITCH_DEPTH_MODE = 0,
-    PICT_FULL85_DEPTH_MODE = 1,
-    PICT_FULL84_DEPTH_MODE = 2,
-    PICT_BDP_DEPTH_MODE = 3,
-    PICT_LIGHT_BDP_DEPTH_MODE = 4,
-    PICT_OPEN_LOOP_DEPTH_MODE = 5
+    PIC_ALL_DEPTH_MODE          = 0, // ALL sq and nsq:  SB size -> 4x4 
+    PIC_ALL_C_DEPTH_MODE        = 1, // ALL sq and nsq with control :  SB size -> 4x4 
+    PIC_SQ_DEPTH_MODE           = 2, // ALL sq:  SB size -> 4x4 
+    PIC_SQ_NON4_DEPTH_MODE      = 3, // SQ:  SB size -> 8x8 
+    PIC_BDP_DEPTH_MODE          = 4,
+    PIC_LIGHT_BDP_DEPTH_MODE    = 5,
+    PIC_SB_SWITCH_DEPTH_MODE    = 6,
+    PIC_OPEN_LOOP_DEPTH_MODE    = 7
 } EbPictureDepthMode;
 
+#if ADAPTIVE_DEPTH_PARTITIONING
+#define EB_SB_DEPTH_MODE              uint8_t
+#define SB_SQ_BLOCKS_DEPTH_MODE             1
+#define SB_SQ_NON4_BLOCKS_DEPTH_MODE        2
+#define SB_OPEN_LOOP_DEPTH_MODE             3
+#define SB_PRED_OPEN_LOOP_DEPTH_MODE        4
+#define SB_PRED_OPEN_LOOP_1_NFL_DEPTH_MODE  5
+#else
 typedef enum EbLcuDepthMode {
 
     LCU_FULL85_DEPTH_MODE = 1,
@@ -3023,7 +3026,7 @@ typedef enum EbLcuDepthMode {
     LCU_PRED_OPEN_LOOP_DEPTH_MODE = 8,
     LCU_PRED_OPEN_LOOP_1_NFL_DEPTH_MODE = 9
 } EbLcuDepthMode;
-
+#endif
 typedef enum EB_INTRA4x4_SEARCH_METHOD {
     INTRA4x4_OFF = 0,
     INTRA4x4_INLINE_SEARCH = 1,
@@ -3379,153 +3382,133 @@ static const uint32_t MD_SCAN_TO_OIS_32x32_SCAN[CU_MAX_COUNT] =
     /*83 */3,
     /*84 */3,
 };
-#if ME_HME_OQ
 /******************************************************************************
                             ME/HME settings
 *******************************************************************************/
-//     M0    M1    M2    M3    M4    M5    M6    M7    M8    M9    M10   M11
-static const uint8_t EnableHmeLevel0Flag[5][MAX_SUPPORTED_MODES] = {
+//     M0    M1    M2    M3    M4    M5    M6    M7    
+static const uint8_t EnableHmeLevel0Flag[INPUT_SIZE_COUNT][MAX_SUPPORTED_MODES] = {
     {   1,    1,    1,    1,    1,    1,    1,    1 },      // INPUT_SIZE_576p_RANGE_OR_LOWER
-    {   1,    1,    1,    1,    1,    1,    1,    1 },      // INPUT_SIZE_720P_RANGE
-    {   1,    1,    1,    1,    1,    1,    1,    1 },      // INPUT_SIZE_1080i_RANGE
+    {   1,    1,    1,    1,    1,    1,    1,    1 },      // INPUT_SIZE_720P_RANGE/INPUT_SIZE_1080i_RANGE
     {   1,    1,    1,    1,    1,    1,    1,    1 },      // INPUT_SIZE_1080p_RANGE
     {   1,    1,    1,    1,    1,    1,    1,    1 },      // INPUT_SIZE_4K_RANGE
 };
-static const uint16_t HmeLevel0TotalSearchAreaWidth[5][MAX_SUPPORTED_MODES] = {
+static const uint16_t HmeLevel0TotalSearchAreaWidth[INPUT_SIZE_COUNT][MAX_SUPPORTED_MODES] = {
     {  48,   48,   48,   48,   48,   48,   48,   48 },
-    {  64,   64,   64,   64,   64,   64,   64,   48 },
-    {  96,   96,   96,   96,   96,   96,   96,   64 },
-    {  96,   96,   96,   96,   96,   96,   96,   64 },
-    { 128,  128,   64,   64,   64,   64,   64,   64 }
+    { 112,  112,   96,   96,   96,   64,   64,   64 },
+    { 128,  128,  128,  128,  128,   96,   96,   96 },
+    { 128,  128,  128,  128,  128,  128,  128,  128 }
 };
 
-static const uint16_t HmeLevel0SearchAreaInWidthArrayLeft[5][MAX_SUPPORTED_MODES] = {
+static const uint16_t HmeLevel0SearchAreaInWidthArrayLeft[INPUT_SIZE_COUNT][MAX_SUPPORTED_MODES] = {
     {  24,   24,   24,   24,   24,   24,   24,   24 },
-    {  32,   32,   32,   32,   32,   32,   32,   24 },
-    {  48,   48,   48,   48,   48,   48,   48,   32 },
-    {  48,   48,   48,   48,   48,   48,   48,   32 },
-    {  64,   64,   32,   32,   32,   32,   32,   32 }
+    {  56,   56,   48,   48,   48,   32,   32,   32 },
+    {  64,   64,   64,   64,   64,   48,   48,   48 },
+    {  64,   64,   64,   64,   64,   64,   64,   64 }
 };
-static const uint16_t HmeLevel0SearchAreaInWidthArrayRight[5][MAX_SUPPORTED_MODES] = {
+static const uint16_t HmeLevel0SearchAreaInWidthArrayRight[INPUT_SIZE_COUNT][MAX_SUPPORTED_MODES] = {
     {  24,   24,   24,   24,   24,   24,   24,   24 },
-    {  32,   32,   32,   32,   32,   32,   32,   24 },
-    {  48,   48,   48,   48,   48,   48,   48,   32 },
-    {  48,   48,   48,   48,   48,   48,   48,   32 },
-    {  64,   64,   32,   32,   32,   32,   32,   32 }
+    {  56,   56,   48,   48,   48,   32,   32,   32 },
+    {  64,   64,   64,   64,   64,   48,   48,   48 },
+    {  64,   64,   64,   64,   64,   64,   64,   64 }
 };
-static const uint16_t HmeLevel0TotalSearchAreaHeight[5][MAX_SUPPORTED_MODES] = {
-    {  40,   40,   40,   40,   40,   32,   32,   32 },
-    {  48,   48,   48,   48,   48,   40,   40,   40 },
-    {  48,   48,   48,   48,   48,   32,   32,   32 },
-    {  48,   48,   48,   48,   48,   48,   48,   48 },
-    {  80,   80,   32,   32,   32,   32,   32,   32 }
+static const uint16_t HmeLevel0TotalSearchAreaHeight[INPUT_SIZE_COUNT][MAX_SUPPORTED_MODES] = {
+    {  40,   40,   40,   40,   40,   40,   40,   40 },
+    {  64,   64,   64,   64,   64,   48,   48,   48 },
+    {  80,   80,   80,   80,   80,   48,   48,   48 },
+    {  80,   80,   80,   80,   80,   80,   80,   80 }
 };
-static const uint16_t HmeLevel0SearchAreaInHeightArrayTop[5][MAX_SUPPORTED_MODES] = {
-    {  20,   20,   20,   20,   20,   16,   16,   16 },
-    {  24,   24,   24,   24,   24,   20,   20,   20 },
-    {  24,   24,   24,   24,   24,   16,   16,   16 },
-    {  24,   24,   24,   24,   24,   24,   24,   24 },
-    {  40,   40,   16,   16,   16,   16,   16,   16 }
+static const uint16_t HmeLevel0SearchAreaInHeightArrayTop[INPUT_SIZE_COUNT][MAX_SUPPORTED_MODES] = {
+    {  20,   20,   20,   20,   20,   20,   20,   20 },
+    {  32,   32,   32,   32,   32,   24,   24,   24 },
+    {  40,   40,   40,   40,   40,   24,   24,   24 },
+    {  40,   40,   40,   40,   40,   40,   40,   40 }
 };
-static const uint16_t HmeLevel0SearchAreaInHeightArrayBottom[5][MAX_SUPPORTED_MODES] = {
-    {  20,   20,   20,   20,   20,   16,   16,   16 },
-    {  24,   24,   24,   24,   24,   20,   20,   20 },
-    {  24,   24,   24,   24,   24,   16,   16,   16 },
-    {  24,   24,   24,   24,   24,   24,   24,   24 },
-    {  40,   40,   16,   16,   16,   16,   16,   16 }
+static const uint16_t HmeLevel0SearchAreaInHeightArrayBottom[INPUT_SIZE_COUNT][MAX_SUPPORTED_MODES] = {
+    {  20,   20,   20,   20,   20,   20,   20,   20 },
+    {  32,   32,   32,   32,   32,   24,   24,   24 },
+    {  40,   40,   40,   40,   40,   24,   24,   24 },
+    {  40,   40,   40,   40,   40,   40,   40,   40 }
 };
 
 // HME LEVEL 1
-//     M0    M1    M2    M3    M4    M5    M6    M7
-static const uint8_t EnableHmeLevel1Flag[5][MAX_SUPPORTED_MODES] = {
+//      M0    M1    M2    M3    M4    M5    M6    M7
+static const uint8_t EnableHmeLevel1Flag[INPUT_SIZE_COUNT][MAX_SUPPORTED_MODES] = {
     {   1,    1,    1,    1,    1,    1,    1,    1 },      // INPUT_SIZE_576p_RANGE_OR_LOWER
-    {   1,    1,    1,    1,    1,    1,    1,    1 },      // INPUT_SIZE_720P_RANGE
-    {   1,    1,    1,    1,    1,    1,    1,    1 },      // INPUT_SIZE_1080i_RANGE
+    {   1,    1,    1,    1,    1,    1,    1,    1 },      // INPUT_SIZE_720P_RANGE/INPUT_SIZE_1080i_RANGE
     {   1,    1,    1,    1,    1,    1,    1,    1 },      // INPUT_SIZE_1080p_RANGE
     {   1,    1,    1,    1,    1,    1,    1,    1 }       // INPUT_SIZE_4K_RANGE
 };
-static const uint16_t HmeLevel1SearchAreaInWidthArrayLeft[5][MAX_SUPPORTED_MODES] = {
-    {  16,   16,   16,    8,    8,    8,    8,    8 },
-    {  16,   16,   16,    8,    8,    8,    8,    4 },
-    {  16,   16,   16,    8,    8,    8,    8,    4 },
-    {  16,   16,   16,    8,    8,    8,    8,    4 },
-    {  16,    8,    4,    4,    4,    4,    4,    4 }
+static const uint16_t HmeLevel1SearchAreaInWidthArrayLeft[INPUT_SIZE_COUNT][MAX_SUPPORTED_MODES] = {
+    {  16,   16,   16,   16,    16,    8,    8,    8 },
+    {  16,   16,   16,   16,    16,    8,    8,    8 },
+    {  16,   16,   16,   16,    16,    8,    8,    8 },
+    {  16,   16,   16,   16,    16,    8,    8,    8 }
 };
-static const uint16_t HmeLevel1SearchAreaInWidthArrayRight[5][MAX_SUPPORTED_MODES] = {
-    {  16,   16,   16,    8,    8,    8,    8,    8 },
-    {  16,   16,   16,    8,    8,    8,    8,    4 },
-    {  16,   16,   16,    8,    8,    8,    8,    4 },
-    {  16,   16,   16,    8,    8,    8,    8,    4 },
-    {  16,    8,    4,    4,    4,    4,    4,    4 }
+static const uint16_t HmeLevel1SearchAreaInWidthArrayRight[INPUT_SIZE_COUNT][MAX_SUPPORTED_MODES] = {
+    {  16,   16,   16,   16,    16,    8,    8,    8 },
+    {  16,   16,   16,   16,    16,    8,    8,    8 },
+    {  16,   16,   16,   16,    16,    8,    8,    8 },
+    {  16,   16,   16,   16,    16,    8,    8,    8 }
 };
-static const uint16_t HmeLevel1SearchAreaInHeightArrayTop[5][MAX_SUPPORTED_MODES] = {
-    {  16,   16,   16,    8,    8,    8,    8,    8 },
-    {  16,   16,   16,    8,    8,    8,    8,    4 },
-    {  16,   16,   16,    8,    8,    4,    4,    4 },
-    {  16,   16,   16,    8,    8,    8,    8,    4 },
-    {  16,    8,    4,    4,    4,    4,    4,    4 }
+static const uint16_t HmeLevel1SearchAreaInHeightArrayTop[INPUT_SIZE_COUNT][MAX_SUPPORTED_MODES] = {
+    {  16,   16,   16,   16,    16,    8,    8,    8 },
+    {  16,   16,   16,   16,    16,    8,    8,    8 },
+    {  16,   16,   16,   16,    16,    8,    8,    8 },
+    {  16,   16,   16,   16,    16,    8,    8,    8 }
 };
-static const uint16_t HmeLevel1SearchAreaInHeightArrayBottom[5][MAX_SUPPORTED_MODES] = {
-    {  16,   16,   16,    8,    8,    8,    8,    8 },
-    {  16,   16,   16,    8,    8,    8,    8,    4 },
-    {  16,   16,   16,    8,    8,    4,    4,    4 },
-    {  16,   16,   16,    8,    8,    8,    8,    4 },
-    {  16,    8,    4,    4,    4,    4,    4,    4 }
+static const uint16_t HmeLevel1SearchAreaInHeightArrayBottom[INPUT_SIZE_COUNT][MAX_SUPPORTED_MODES] = {
+    {  16,   16,   16,   16,    16,    8,    8,    8 },
+    {  16,   16,   16,   16,    16,    8,    8,    8 },
+    {  16,   16,   16,   16,    16,    8,    8,    8 },
+    {  16,   16,   16,   16,    16,    8,    8,    8 }
 };
 // HME LEVEL 2
-//     M0    M1    M2    M3    M4    M5    M6    M7    M8    M9    M10   M11
-static const uint8_t EnableHmeLevel2Flag[5][MAX_SUPPORTED_MODES] = {
+//     M0    M1    M2    M3    M4    M5    M6    M7
+static const uint8_t EnableHmeLevel2Flag[INPUT_SIZE_COUNT][MAX_SUPPORTED_MODES] = {
     {   1,    1,    1,    1,    1,    1,    1,    1 },      // INPUT_SIZE_576p_RANGE_OR_LOWER
-    {   1,    1,    1,    1,    1,    1,    1,    1 },      // INPUT_SIZE_720P_RANGE
-    {   1,    1,    1,    1,    1,    1,    1,    1 },      // INPUT_SIZE_1080i_RANGE
+    {   1,    1,    1,    1,    1,    1,    1,    1 },      // INPUT_SIZE_720P_RANGE/INPUT_SIZE_1080i_RANGE
     {   1,    1,    1,    1,    1,    1,    1,    1 },      // INPUT_SIZE_1080p_RANGE
-    {   1,    1,    0,    0,    0,    0,    0,    0 }       // INPUT_SIZE_4K_RANGE
+    {   1,    1,    1,    1,    1,    1,    1,    1 }       // INPUT_SIZE_4K_RANGE
 };
-static const uint16_t HmeLevel2SearchAreaInWidthArrayLeft[5][MAX_SUPPORTED_MODES] = {
-    {   8,    8,    8,    4,    4,    4,    4,    4 },
-    {   8,    8,    8,    4,    4,    4,    4,    4 },
-    {   8,    8,    8,    4,    4,    4,    4,    4 },
-    {   8,    8,    8,    4,    4,    4,    4,    4 },
-    {   8,    4,    0,    0,    0,    0,    0,    0 }
+static const uint16_t HmeLevel2SearchAreaInWidthArrayLeft[INPUT_SIZE_COUNT][MAX_SUPPORTED_MODES] = {
+    {   8,    8,    8,    8,    8,    4,    4,    4 },
+    {   8,    8,    8,    8,    8,    4,    4,    4 },
+    {   8,    8,    8,    8,    8,    4,    4,    4 },
+    {   8,    8,    8,    8,    8,    4,    4,    4 }
 };
-static const uint16_t HmeLevel2SearchAreaInWidthArrayRight[5][MAX_SUPPORTED_MODES] = {
-    {   8,    8,    8,    4,    4,    4,    4,    4 },
-    {   8,    8,    8,    4,    4,    4,    4,    4 },
-    {   8,    8,    8,    4,    4,    4,    4,    4 },
-    {   8,    8,    8,    4,    4,    4,    4,    4 },
-    {   8,    4,    0,    0,    0,    0,    0,    0 }
+static const uint16_t HmeLevel2SearchAreaInWidthArrayRight[INPUT_SIZE_COUNT][MAX_SUPPORTED_MODES] = {
+    {   8,    8,    8,    8,    8,    4,    4,    4 },
+    {   8,    8,    8,    8,    8,    4,    4,    4 },
+    {   8,    8,    8,    8,    8,    4,    4,    4 },
+    {   8,    8,    8,    8,    8,    4,    4,    4 }
 };
-static const uint16_t HmeLevel2SearchAreaInHeightArrayTop[5][MAX_SUPPORTED_MODES] = {
-    {   8,    8,    8,    4,    4,    4,    4,    4 },
-    {   8,    8,    8,    4,    4,    4,    4,    2 },
-    {   8,    8,    8,    4,    4,    2,    2,    2 },
-    {   8,    8,    8,    4,    4,    4,    4,    2 },
-    {   8,    4,    0,    0,    0,    0,    0,    0 }
+static const uint16_t HmeLevel2SearchAreaInHeightArrayTop[INPUT_SIZE_COUNT][MAX_SUPPORTED_MODES] = {
+    {   8,    8,    8,    8,    8,    4,    4,    4 },
+    {   8,    8,    8,    8,    8,    4,    4,    4 },
+    {   8,    8,    8,    8,    8,    4,    4,    4 },
+    {   8,    8,    8,    8,    8,    4,    4,    4 }
 };
-static const uint16_t HmeLevel2SearchAreaInHeightArrayBottom[5][MAX_SUPPORTED_MODES] = {
-    {   8,    8,    8,    4,    4,    4,    4,    4 },
-    {   8,    8,    8,    4,    4,    4,    4,    2 },
-    {   8,    8,    8,    4,    4,    2,    2,    2 },
-    {   8,    8,    8,    4,    4,    4,    4,    2 },
-    {   8,    4,    0,    0,    0,    0,    0,    0 }
+static const uint16_t HmeLevel2SearchAreaInHeightArrayBottom[INPUT_SIZE_COUNT][MAX_SUPPORTED_MODES] = {
+    {   8,    8,    8,    8,    8,    4,    4,    4 },
+    {   8,    8,    8,    8,    8,    4,    4,    4 },
+    {   8,    8,    8,    8,    8,    4,    4,    4 },
+    {   8,    8,    8,    8,    8,    4,    4,    4 }
 };
 
-static const uint8_t SearchAreaWidth[5][MAX_SUPPORTED_MODES] = {
-    {  64,   64,   64,   16,   16,   16,   16,   16 },
-    {  64,   64,   64,   16,   16,   16,   16,   16 },
-    {  64,   64,   64,   16,   16,   16,   16,   16 },
-    {  64,   64,   64,   16,   16,   16,   16,   16 },
-    {  64,   32,   16,   16,   16,   16,   16,   16 }
+static const uint8_t SearchAreaWidth[INPUT_SIZE_COUNT][MAX_SUPPORTED_MODES] = {
+    {  64,   64,   64,   64,   64,   48,   48,   48 },
+    { 112,   96,   96,   96,   96,   48,   48,   48 },
+    { 128,  112,  112,  112,  112,   48,   48,   48 },
+    { 128,  112,  112,  112,  112,   48,   48,   48 }
 };
+static const uint8_t SearchAreaHeight[INPUT_SIZE_COUNT][MAX_SUPPORTED_MODES] = {
+    {  64,   64,   64,   64,   64,   48,   48,   48 },
+    { 112,   96,   96,   96,   96,   48,   48,   48 },
+    { 128,  112,  112,  112,  112,   48,   48,   48 },
+    { 128,  112,  112,  112,  112,   48,   48,   48 }
 
-static const uint8_t SearchAreaHeight[5][MAX_SUPPORTED_MODES] = {
-    {  64,   64,   64,   16,   16,    9,    9,    9 },
-    {  64,   64,   64,   16,   16,   13,   13,    9 },
-    {  64,   64,   64,   16,   16,    9,    9,    7 },
-    {  64,   64,   64,   16,   16,   13,   13,    9 },
-    {  64,   32,    9,    9,    9,    9,    9,    9 }
+//     M0    M1    M2    M3    M4    M5    M6    M7
 };
-#endif
 
 #ifdef __cplusplus
 }

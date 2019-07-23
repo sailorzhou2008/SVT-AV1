@@ -12,15 +12,21 @@
 
 #include "EbAppContext.h"
 #include "EbAppConfig.h"
-#include "EbErrorCodes.h"
+#include "EbSvtAv1ErrorCodes.h"
+#include "EbAppInputy4m.h"
 
-#include "EbTime.h"
+#include "EbSvtAv1Time.h"
+
+
+#define IVF_FRAME_HEADER_IN_LIB                     0
+
 /***************************************
  * Macros
  ***************************************/
 #define CLIP3(MinVal, MaxVal, a)        (((a)<(MinVal)) ? (MinVal) : (((a)>(MaxVal)) ? (MaxVal) :(a)))
 #define FUTURE_WINDOW_WIDTH                 4
 #define SIZE_OF_ONE_FRAME_IN_BYTES(width, height,is16bit) ( ( ((width)*(height)*3)>>1 )<<is16bit)
+#define YUV4MPEG2_IND_SIZE 9
 extern volatile int32_t keepRunning;
 
 /***************************************
@@ -429,7 +435,7 @@ void LogErrorOutput(
         break;
 
     case EB_ENC_PM_ERROR10:
-        fprintf(errorLogFile, "Error: PictureManagerKernel: referenceEntryPtr should never be null!\n");
+        fprintf(errorLogFile, "Error: picture_manager_kernel: referenceEntryPtr should never be null!\n");
         break;
 
     case EB_ENC_PM_ERROR2:
@@ -537,7 +543,7 @@ void LogErrorOutput(
         break;
 
     case EB_ENC_RD_COST_ERROR3:
-        fprintf(errorLogFile, "Error: Intra2Nx2NFastCostIslice can only support 2Nx2N partition type!\n");
+        fprintf(errorLogFile, "Error: intra2_nx2_n_fast_cost_islice can only support 2Nx2N partition type!\n");
         break;
 
         // EB_ENC_SAO_ERRORS:
@@ -759,7 +765,7 @@ void ReadInputFrames(
     uint32_t  inputPaddedHeight = config->inputPaddedHeight;
     FILE   *inputFile = config->inputFile;
     uint8_t  *ebInputPtr;
-    EbSvtEncInput* inputPtr = (EbSvtEncInput*)headerPtr->p_buffer;
+    EbSvtIOFormat* inputPtr = (EbSvtIOFormat*)headerPtr->p_buffer;
 
     uint64_t frameSize = (uint64_t)((inputPaddedWidth*inputPaddedHeight * 3) / 2 + (inputPaddedWidth / 4 * inputPaddedHeight * 3) / 2);
     inputPtr->yStride  = inputPaddedWidth;
@@ -807,13 +813,29 @@ void ReadInputFrames(
                 }
             }
             else {
+
+                /* if input is a y4m file, read next line which contains "FRAME" */
+                if(config->y4mInput==EB_TRUE) {
+                    readY4mFrameDelimiter(config);
+                }
+
                 uint64_t lumaReadSize = (uint64_t)inputPaddedWidth*inputPaddedHeight << is16bit;
                 ebInputPtr = inputPtr->luma;
-                headerPtr->n_filled_len += (uint32_t)fread(ebInputPtr, 1, lumaReadSize, inputFile);
+                if(config->y4mInput==EB_FALSE && config->processedFrameCount == 0 && config->inputFile == stdin) {
+                    /* if not a y4m file and input is read from stdin, 9 bytes were already read when checking
+                        or the YUV4MPEG2 string in the stream, so copy those bytes over */
+                    memcpy(ebInputPtr,config->y4mBuf,YUV4MPEG2_IND_SIZE);
+                    headerPtr->n_filled_len += YUV4MPEG2_IND_SIZE;
+                    ebInputPtr += YUV4MPEG2_IND_SIZE;
+                    headerPtr->n_filled_len += (uint32_t)fread(ebInputPtr, 1, lumaReadSize-YUV4MPEG2_IND_SIZE, inputFile);
+                }else {
+                    headerPtr->n_filled_len += (uint32_t)fread(ebInputPtr, 1, lumaReadSize, inputFile);
+                }
                 ebInputPtr = inputPtr->cb;
                 headerPtr->n_filled_len += (uint32_t)fread(ebInputPtr, 1, lumaReadSize >> 2, inputFile);
                 ebInputPtr = inputPtr->cr;
                 headerPtr->n_filled_len += (uint32_t)fread(ebInputPtr, 1, lumaReadSize >> 2, inputFile);
+
                 inputPtr->luma = inputPtr->luma + ((config->inputPaddedWidth*TOP_INPUT_PADDING + LEFT_INPUT_PADDING) << is16bit);
                 inputPtr->cb   = inputPtr->cb + (((config->inputPaddedWidth >> 1)*(TOP_INPUT_PADDING >> 1) + (LEFT_INPUT_PADDING >> 1)) << is16bit);
                 inputPtr->cr   = inputPtr->cr + (((config->inputPaddedWidth >> 1)*(TOP_INPUT_PADDING >> 1) + (LEFT_INPUT_PADDING >> 1)) << is16bit);
@@ -1031,7 +1053,7 @@ void ReadInputFrames(
             const size_t luma2bitSize = luma8bitSize / 4; //4-2bit pixels into 1 byte
             const size_t chroma2bitSize = luma2bitSize >> 2;
 
-            EbSvtEncInput* inputPtr = (EbSvtEncInput*)headerPtr->p_buffer;
+            EbSvtIOFormat* inputPtr = (EbSvtIOFormat*)headerPtr->p_buffer;
             inputPtr->yStride = config->inputPaddedWidth;
             inputPtr->crStride = config->inputPaddedWidth >> 1;
             inputPtr->cbStride = config->inputPaddedWidth >> 1;
@@ -1072,7 +1094,7 @@ void ReadInputFrames(
             const size_t luma10bitSize = (config->encoderBitDepth > 8 && tenBitPackedMode == 0) ? luma8bitSize : 0;
             const size_t chroma10bitSize = (config->encoderBitDepth > 8 && tenBitPackedMode == 0) ? chroma8bitSize : 0;
 
-            EbSvtEncInput* inputPtr = (EbSvtEncInput*)headerPtr->p_buffer;
+            EbSvtIOFormat* inputPtr = (EbSvtIOFormat*)headerPtr->p_buffer;
 
             inputPtr->yStride = config->inputPaddedWidth;
             inputPtr->crStride = config->inputPaddedWidth >> 1;
@@ -1166,7 +1188,7 @@ APPEXITCONDITIONTYPE ProcessInputBuffer(
 
     int64_t                  inputPaddedWidth           = config->inputPaddedWidth;
     int64_t                  inputPaddedHeight          = config->inputPaddedHeight;
-    int64_t                  framesToBeEncoded          = config->framesToBeEncoded;
+    int64_t                  frames_to_be_encoded          = config->frames_to_be_encoded;
     uint64_t                 frameSize                  = (uint64_t)((inputPaddedWidth*inputPaddedHeight * 3) / 2 + (inputPaddedWidth / 4 * inputPaddedHeight * 3) / 2);
     int64_t                  totalBytesToProcessCount;
     int64_t                  remainingByteCount;
@@ -1176,9 +1198,9 @@ APPEXITCONDITIONTYPE ProcessInputBuffer(
         EbInjector(config->processedFrameCount, config->injector_frame_rate);
     }
 
-    totalBytesToProcessCount = (framesToBeEncoded < 0) ? -1 : (config->encoderBitDepth == 10 && config->compressedTenBitFormat == 1) ?
-        framesToBeEncoded * (int64_t)frameSize :
-        framesToBeEncoded * SIZE_OF_ONE_FRAME_IN_BYTES(inputPaddedWidth, inputPaddedHeight, is16bit);
+    totalBytesToProcessCount = (frames_to_be_encoded < 0) ? -1 : (config->encoderBitDepth == 10 && config->compressedTenBitFormat == 1) ?
+            frames_to_be_encoded * (int64_t)frameSize :
+            frames_to_be_encoded * SIZE_OF_ONE_FRAME_IN_BYTES(inputPaddedWidth, inputPaddedHeight, is16bit);
 
 
     remainingByteCount       = (totalBytesToProcessCount < 0) ?   -1 :  totalBytesToProcessCount - (int64_t)config->processedByteCount;
@@ -1207,14 +1229,14 @@ APPEXITCONDITIONTYPE ProcessInputBuffer(
 
         // Fill in Buffers Header control data
         headerPtr->pts          = config->processedFrameCount-1;
-        headerPtr->pic_type    = EB_INVALID_PICTURE;
+        headerPtr->pic_type    = EB_AV1_INVALID_PICTURE;
 
         headerPtr->flags = 0;
 
         // Send the picture
         eb_svt_enc_send_picture(componentHandle, headerPtr);
 
-        if ((config->processedFrameCount == (uint64_t)config->framesToBeEncoded) || config->stopEncoder) {
+        if ((config->processedFrameCount == (uint64_t)config->frames_to_be_encoded) || config->stopEncoder) {
 
             headerPtr->n_alloc_len    = 0;
             headerPtr->n_filled_len   = 0;
@@ -1222,7 +1244,7 @@ APPEXITCONDITIONTYPE ProcessInputBuffer(
             headerPtr->p_app_private  = NULL;
             headerPtr->flags       = EB_BUFFERFLAG_EOS;
             headerPtr->p_buffer      = NULL;
-            headerPtr->pic_type    = EB_INVALID_PICTURE;
+            headerPtr->pic_type    = EB_AV1_INVALID_PICTURE;
 
             eb_svt_enc_send_picture(componentHandle, headerPtr);
 
@@ -1239,6 +1261,10 @@ APPEXITCONDITIONTYPE ProcessInputBuffer(
 #define SPEED_MEASUREMENT_INTERVAL  2000
 #define START_STEADY_STATE          1000
 #define AV1_FOURCC                  0x31305641 // used for ivf header
+#define IVF_STREAM_HEADER_SIZE      32
+#define IVF_FRAME_HEADER_SIZE       12
+#define OBU_FRAME_HEADER_SIZE       3
+#define TD_SIZE                     2
 static __inline void mem_put_le32(void *vmem, int32_t val) {
     uint8_t *mem = (uint8_t *)vmem;
 
@@ -1259,7 +1285,7 @@ static __inline void mem_put_le16(void *vmem, int32_t val) {
 
 static void write_ivf_stream_header(EbConfig_t *config)
 {
-    char header[32];
+    char header[IVF_STREAM_HEADER_SIZE];
     header[0] = 'D';
     header[1] = 'K';
     header[2] = 'I';
@@ -1269,36 +1295,58 @@ static void write_ivf_stream_header(EbConfig_t *config)
     mem_put_le32(header + 8, AV1_FOURCC);                // fourcc
     mem_put_le16(header + 12, config->inputPaddedWidth);  // width
     mem_put_le16(header + 14, config->inputPaddedHeight); // height
-    mem_put_le32(header + 16, (config->frameRate >> 16) * 1000);  // rate
-    mem_put_le32(header + 20, 1001);            // scale
-                                                //mem_put_le32(header + 16, config->frameRateDenominator);  // rate
-                                                //mem_put_le32(header + 20, config->frameRateNumerator);  // scale
+    if (config->frameRateDenominator != 0 && config->frameRateNumerator != 0){
+        mem_put_le32(header + 16, config->frameRateNumerator);  // rate
+        mem_put_le32(header + 20, config->frameRateDenominator);            // scale
+                                                    //mem_put_le32(header + 16, config->frameRateDenominator);  // rate
+                                                    //mem_put_le32(header + 20, config->frameRateNumerator);  // scale
+    }
+    else {
+        mem_put_le32(header + 16, (config->frameRate >> 16) * 1000);  // rate
+        mem_put_le32(header + 20, 1000);            // scale
+                                                    //mem_put_le32(header + 16, config->frameRateDenominator);  // rate
+                                                    //mem_put_le32(header + 20, config->frameRateNumerator);  // scale
+    }
     mem_put_le32(header + 24, 0);               // length
     mem_put_le32(header + 28, 0);               // unused
     //config->performanceContext.byteCount += 32;
     if (config->bitstreamFile)
-        fwrite(header, 1, 32, config->bitstreamFile);
+        fwrite(header, 1, IVF_STREAM_HEADER_SIZE, config->bitstreamFile);
 
     return;
 }
+static void update_prev_ivf_header(EbConfig_t *config){
+
+    char header[4]; // only for the number of bytes
+    if (config && config->bitstreamFile && config->byte_count_since_ivf != 0){
+        fseeko64(config->bitstreamFile, (-(int32_t)(config->byte_count_since_ivf + IVF_FRAME_HEADER_SIZE)),SEEK_CUR);
+        mem_put_le32(&header[0], (int32_t)(config->byte_count_since_ivf));
+        fwrite(header, 1, 4, config->bitstreamFile);
+        fseeko64(config->bitstreamFile, (config->byte_count_since_ivf + IVF_FRAME_HEADER_SIZE - 4), SEEK_CUR);
+        config->byte_count_since_ivf = 0;
+    }
+}
 
 static void write_ivf_frame_header(EbConfig_t *config, uint32_t byte_count){
-    char header[12];
+    char header[IVF_FRAME_HEADER_SIZE];
     int32_t write_location = 0;
 
     mem_put_le32(&header[write_location], (int32_t)byte_count);
     write_location = write_location + 4;
-    mem_put_le32(&header[write_location], (int32_t)((config->performanceContext.frameCount - 1) & 0xFFFFFFFF));
+    mem_put_le32(&header[write_location], (int32_t)((config->ivf_count) & 0xFFFFFFFF));
     write_location = write_location + 4;
-    mem_put_le32(&header[write_location], (int32_t)((config->performanceContext.frameCount - 1) >> 32));
+    mem_put_le32(&header[write_location], (int32_t)((config->ivf_count) >> 32));
     write_location = write_location + 4;
-    //config->performanceContext.byteCount += write_location;
+
+    config->byte_count_since_ivf = (byte_count);
+
+    config->ivf_count++;
+    fflush(stdout);
 
     if (config->bitstreamFile)
-        fwrite(header, 1, 12, config->bitstreamFile);
+        fwrite(header, 1, IVF_FRAME_HEADER_SIZE, config->bitstreamFile);
 }
-#define OBU_FRAME_HEADER_SIZE   3
-#define TD_SPS_SIZE             17
+
 APPEXITCONDITIONTYPE ProcessOutputStreamBuffer(
     EbConfig_t             *config,
     EbAppContext_t         *appCallBack,
@@ -1333,6 +1381,12 @@ APPEXITCONDITIONTYPE ProcessOutputStreamBuffer(
         return APP_ExitConditionError;
     }
     else if (stream_status != EB_NoErrorEmptyQueue) {
+#if TILES
+        EbBool   has_tiles                = (EbBool)(appCallBack->ebEncParameters.tile_columns || appCallBack->ebEncParameters.tile_rows);
+#else
+        EbBool   has_tiles                = (EbBool)EB_FALSE;
+#endif
+        uint8_t  obu_frame_header_size    = has_tiles ? OBU_FRAME_HEADER_SIZE + 1 : OBU_FRAME_HEADER_SIZE;
         ++(config->performanceContext.frameCount);
         *totalLatency += (uint64_t)headerPtr->n_tick_count;
         *maxLatency = (headerPtr->n_tick_count > *maxLatency) ? headerPtr->n_tick_count : *maxLatency;
@@ -1359,24 +1413,62 @@ APPEXITCONDITIONTYPE ProcessOutputStreamBuffer(
         if (streamFile) {
             if (config->performanceContext.frameCount == 1){
                 write_ivf_stream_header(config);
-#if !IVF_FRAME_HEADER_IN_LIB
             }
 
-            if (headerPtr->flags & EB_BUFFERFLAG_SHOW_EXT){
-                write_ivf_frame_header(config, headerPtr->n_filled_len - OBU_FRAME_HEADER_SIZE);
-                fwrite(headerPtr->p_buffer, 1, headerPtr->n_filled_len - OBU_FRAME_HEADER_SIZE, streamFile);
-                write_ivf_frame_header(config, OBU_FRAME_HEADER_SIZE);
-                fwrite(headerPtr->p_buffer + headerPtr->n_filled_len - OBU_FRAME_HEADER_SIZE, 1, OBU_FRAME_HEADER_SIZE, streamFile);
-            }else{
-                write_ivf_frame_header(config, headerPtr->n_filled_len);
-#else
-            }
-#endif
+            switch(headerPtr->flags & 0x00000006){ // Check for the flags EB_BUFFERFLAG_HAS_TD and EB_BUFFERFLAG_SHOW_EXT
 
-                fwrite(headerPtr->p_buffer, 1, headerPtr->n_filled_len, streamFile);
-#if !IVF_FRAME_HEADER_IN_LIB
+                case (EB_BUFFERFLAG_HAS_TD | EB_BUFFERFLAG_SHOW_EXT):
+
+                    // terminate previous ivf packet, update the combined size of packets sent
+                    update_prev_ivf_header(config);
+
+                    // Write a new IVF frame header to file as a TD is in the packet
+                    write_ivf_frame_header(config, headerPtr->n_filled_len - (obu_frame_header_size + TD_SIZE));
+                    fwrite(headerPtr->p_buffer, 1, headerPtr->n_filled_len - (obu_frame_header_size + TD_SIZE), streamFile);
+
+                    // An EB_BUFFERFLAG_SHOW_EXT means that another TD has been added to the packet to show another frame, a new IVF is needed
+                    write_ivf_frame_header(config, (obu_frame_header_size + TD_SIZE));
+                    fwrite(headerPtr->p_buffer + headerPtr->n_filled_len - (obu_frame_header_size + TD_SIZE), 1, (obu_frame_header_size + TD_SIZE), streamFile);
+
+
+                    break;
+
+                case (EB_BUFFERFLAG_HAS_TD):
+
+                    // terminate previous ivf packet, update the combined size of packets sent
+                    update_prev_ivf_header(config);
+
+                    // Write a new IVF frame header to file as a TD is in the packet
+                    write_ivf_frame_header(config, headerPtr->n_filled_len);
+                    fwrite(headerPtr->p_buffer, 1, headerPtr->n_filled_len, streamFile);
+
+                    break;
+
+                case (EB_BUFFERFLAG_SHOW_EXT):
+
+                    // this case means that there's only one TD in this packet and is relater
+                    fwrite(headerPtr->p_buffer, 1, headerPtr->n_filled_len - (obu_frame_header_size + TD_SIZE), streamFile);
+                    // this packet will be part of the previous IVF header
+                    config->byte_count_since_ivf += (headerPtr->n_filled_len - (obu_frame_header_size + TD_SIZE));
+
+                    // terminate previous ivf packet, update the combined size of packets sent
+                    update_prev_ivf_header(config);
+
+                    // An EB_BUFFERFLAG_SHOW_EXT means that another TD has been added to the packet to show another frame, a new IVF is needed
+                    write_ivf_frame_header(config, (obu_frame_header_size + TD_SIZE));
+                    fwrite(headerPtr->p_buffer + headerPtr->n_filled_len - (obu_frame_header_size + TD_SIZE), 1, (obu_frame_header_size + TD_SIZE), streamFile);
+
+                    break;
+
+                default:
+
+                    // This is a packet without a TD, write it straight to file
+                    fwrite(headerPtr->p_buffer, 1, headerPtr->n_filled_len, streamFile);
+
+                    // this packet will be part of the previous IVF header
+                    config->byte_count_since_ivf += (headerPtr->n_filled_len);
+                    break;
             }
-#endif
         }
         config->performanceContext.byteCount += headerPtr->n_filled_len;
 
@@ -1415,7 +1507,7 @@ APPEXITCONDITIONTYPE ProcessOutputReconBuffer(
     EbConfig_t             *config,
     EbAppContext_t         *appCallBack)
 {
-    EbBufferHeaderType    *headerPtr = appCallBack->reconBuffer; // needs to change for buffered input
+    EbBufferHeaderType    *headerPtr = appCallBack->recon_buffer; // needs to change for buffered input
     EbComponentType       *componentHandle = (EbComponentType*)appCallBack->svtEncoderHandle;
     APPEXITCONDITIONTYPE    return_value = APP_ExitConditionNone;
     EbErrorType            recon_status = EB_ErrorNone;

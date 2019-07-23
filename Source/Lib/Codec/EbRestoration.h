@@ -130,6 +130,8 @@ extern "C" {
 #define WIENER_WIN2_CHROMA ((WIENER_WIN_CHROMA) * (WIENER_WIN_CHROMA))
 #define WIENER_FILT_PREC_BITS 7
 #define WIENER_FILT_STEP (1 << WIENER_FILT_PREC_BITS)
+#define WIENER_WIN_3TAP (WIENER_WIN - 4)
+#define WIENER_WIN2_3TAP ((WIENER_WIN_3TAP) * (WIENER_WIN_3TAP))
 
 // Central values for the taps
 #define WIENER_FILT_TAP0_MIDV (3)
@@ -177,8 +179,6 @@ extern "C" {
 #if WIENER_FILT_PREC_BITS != 7
 #error "Wiener filter currently only works if WIENER_FILT_PREC_BITS == 7"
 #endif
-#define SUBPEL_TAPS 8
-    typedef int16_t InterpKernel[SUBPEL_TAPS];
 
     typedef struct {
         DECLARE_ALIGNED(16, InterpKernel, vfilter);
@@ -296,6 +296,9 @@ extern "C" {
     // Finally tmpbuf is a scratch buffer used by the sgrproj filter which should
     // be at least SGRPROJ_TMPBUF_SIZE big.
     void av1_loop_restoration_filter_unit(
+#if REST_NEED_B
+        uint8_t need_bounadaries,
+#endif
         const RestorationTileLimits *limits, const RestorationUnitInfo *rui,
         const RestorationStripeBoundaries *rsb, RestorationLineBuffers *rlbs,
         const AV1PixelRect *tile_rect, int32_t tile_stripe0, int32_t ss_x, int32_t ss_y,
@@ -328,7 +331,7 @@ extern "C" {
     // to the current tile, whose starting index is returned as
     // *tile_tl_idx.
     //int32_t av1_loop_restoration_corners_in_sb(const struct AV1Common *cm, int32_t plane,
-    //                                       int32_t mi_row, int32_t mi_col, BlockSize bsize,
+    //                                       int32_t mi_row, int32_t mi_col, block_size bsize,
     //                                       int32_t *rcol0, int32_t *rcol1, int32_t *rrow0,
     //                                       int32_t *rrow1, int32_t *tile_tl_idx);
 
@@ -390,8 +393,20 @@ extern "C" {
 
 
 
+#if REST_M
+    typedef struct {
+        // The best coefficients for Wiener or Sgrproj restoration
+        WienerInfo wiener;
+        SgrprojInfo sgrproj;
 
+        // The sum of squared errors for this rtype.
+        int64_t sse[RESTORE_SWITCHABLE_TYPES];
 
+        // The rtype to use for this unit given a frame rtype as
+        // index. Indices: WIENER, SGRPROJ, SWITCHABLE.
+        RestorationType best_rtype[RESTORE_TYPES - 1];
+    } RestUnitSearchInfo;
+#endif
 
 #ifdef __cplusplus
 }  // extern "C"

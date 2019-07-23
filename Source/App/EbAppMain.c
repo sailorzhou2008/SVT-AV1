@@ -22,7 +22,7 @@
 #include <stdint.h>
 #include "EbAppConfig.h"
 #include "EbAppContext.h"
-#include "EbTime.h"
+#include "EbSvtAv1Time.h"
 #ifdef _WIN32
 #include <Windows.h>
 #else
@@ -65,10 +65,10 @@ void EventHandler(int32_t dummy) {
 void AssignAppThreadGroup(uint8_t targetSocket) {
 #ifdef _MSC_VER
     if (GetActiveProcessorGroupCount() == 2) {
-        GROUP_AFFINITY           groupAffinity;
-        GetThreadGroupAffinity(GetCurrentThread(), &groupAffinity);
-        groupAffinity.Group = targetSocket;
-        SetThreadGroupAffinity(GetCurrentThread(), &groupAffinity, NULL);
+        GROUP_AFFINITY           group_affinity;
+        GetThreadGroupAffinity(GetCurrentThread(), &group_affinity);
+        group_affinity.Group = targetSocket;
+        SetThreadGroupAffinity(GetCurrentThread(), &group_affinity, NULL);
     }
 #else
     (void)targetSocket;
@@ -280,7 +280,7 @@ int32_t main(int32_t argc, char* argv[])
                                 (uint32_t)(configs[instanceCount]->performanceContext.maxLatency));
                         }
                         else {
-                            printf("\nChannel %u\nAverage Speed:\t\t%.2f fps\nTotal Encoding Time:\t%.0f ms\nTotal Execution Time:\t%.0f ms\nAverage Latency:\t%.0f ms\nMax Latency:\t\t%u ms\n",
+                            printf("\nChannel %u\nAverage Speed:\t\t%.3f fps\nTotal Encoding Time:\t%.0f ms\nTotal Execution Time:\t%.0f ms\nAverage Latency:\t%.0f ms\nMax Latency:\t\t%u ms\n",
                                 (uint32_t)(instanceCount + 1),
                                 configs[instanceCount]->performanceContext.averageSpeed,
                                 configs[instanceCount]->performanceContext.total_encode_time * 1000,
@@ -301,7 +301,6 @@ int32_t main(int32_t argc, char* argv[])
                     printf("Error encoding at channel %u! Check error log file for more details ... \n", instanceCount + 1);
                 }
             }
-
             // DeInit Encoder
             for (instanceCount = numChannels; instanceCount > 0; --instanceCount) {
                 if (return_errors[instanceCount - 1] == EB_ErrorNone)
